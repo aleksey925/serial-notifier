@@ -3,7 +3,6 @@ import os
 import sys
 import time
 import asyncio
-import logging
 
 from os.path import join, exists, split
 
@@ -45,7 +44,7 @@ class SystemTrayIcon(QtGui.QSystemTrayIcon):
             self.left_click()
 
     def left_click(self):
-        if self.main_window.isVisible():
+        if self.main_window.isVisible() and self.main_window.isActiveWindow():
             self.main_window.hide()
         else:
             self.show_window()
@@ -170,7 +169,7 @@ class SerialTree(QtGui.QWidget):
 
     def _open_menu(self, position):
         """
-        Создает и котекстное меню по щелчку
+        Создает контекстное меню по щелчку
         """
         indexes = self.view.selectedIndexes()
 
@@ -220,7 +219,7 @@ class MainWindow(QtGui.QMainWindow):
     # Служит для отправки заданий в DBWorker
     s_send_db_task = QtCore.pyqtSignal(object, name='send_task')
 
-    def __init__(self, logger: logging.Logger):
+    def __init__(self):
         super(MainWindow, self).__init__()
 
         # Настройки данного окна
@@ -230,7 +229,14 @@ class MainWindow(QtGui.QMainWindow):
         main_widget.setLayout(self.main_layout)
         self.setCentralWidget(main_widget)
 
-        self.logger = logger
+        # Виджеты
+        self.tray_icon = SystemTrayIcon(parent=self)
+        self.search_field = SearchLineEdit(self)
+        self.lab_search_field = QtGui.QLabel('Поиск: ')
+        self.serial_tree = SerialTree(parent=self)
+        self.notice = BoardNotification()
+
+        self.logger = create_logger(join(base_dir, 'log'), self.tray_icon)
         self.urls = SerialsUrls(base_dir)
         self.conf_program = ConfigsProgram(base_dir)
 
@@ -242,13 +248,6 @@ class MainWindow(QtGui.QMainWindow):
         self.upgrade_timer = UpgradeTimer(self.db_worker, self.urls,
                                           self.conf_program, self.logger)
         self.upgrade_timer.s_upgrade_complete.connect(self.upgrade_complete)
-
-        # Виджеты
-        self.tray_icon = SystemTrayIcon(parent=self)
-        self.search_field = SearchLineEdit(self)
-        self.lab_search_field = QtGui.QLabel('Поиск: ')
-        self.serial_tree = SerialTree(parent=self)
-        self.notice = BoardNotification()
 
         self.init_widgets()
         self.load_serials_from_db()
@@ -296,10 +295,11 @@ class MainWindow(QtGui.QMainWindow):
         кнопки меню и уведомить пользователя о новых сериях если таковые
         появились
         """
+        # todo выводить сообщения об ошибке в 1 месте, а не тут и через логер
         if serials_with_updates and status == 'ok':
             self.load_serials_from_db()
             message = self.tray_icon.prepare_message(serials_with_updates)
-            self.tray_icon.showMessage('Вкурсе новых серий', message)
+            self.tray_icon.showMessage('В курсе новых серий', message)
             self.notice.add_notification(message)
 
             if exists(split(self.conf_program.conf['file_notifications'])[0]):
@@ -311,10 +311,10 @@ class MainWindow(QtGui.QMainWindow):
 
         elif status == 'ok' and type_run == 'user':
             self.tray_icon.showMessage(
-                'Вкурсе новых серий',
+                'В курсе новых серий',
                 'Обновление базы завершено, новых серий не выходило')
         elif status == 'error':
-            self.tray_icon.showMessage('Вкурсе новых серий',
+            self.tray_icon.showMessage('В курсе новых серий',
                                        'При обновлении базы возникла ошибка')
 
         self.tray_icon.a_update.setDisabled(False)
@@ -341,16 +341,17 @@ class MainWindow(QtGui.QMainWindow):
         # self.tray_icon.a_load_from_bd.setDisabled(False)
 
 
-# todo добавить timeout для запросов иногда из-за этого обновление не завершается
-logger = create_logger(os.path.join(base_dir, 'log'))
+# todo добавить кнопку прерывания обновления
+# todo изменить виджет для отображения списка сериалов
+# todo при изменении статуса фильма не перезагружать весь виджет
 app = QtGui.QApplication(sys.argv)
 app.setWindowIcon(QtGui.QIcon(join(base_dir, 'icons/app-icon-512x512.png')))
 
 loop = QEventLoop(app)
 asyncio.set_event_loop(loop)
 
-window = MainWindow(logger)
-window.setWindowTitle('Вкурсе новых серий')
+window = MainWindow()
+window.setWindowTitle('В курсе новых серий')
 window.show()
 # Делаем окно активным
 window.raise_()

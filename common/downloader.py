@@ -17,21 +17,24 @@ class Downloader:
         self.limit = limit  # Количество одновременно скачиваемых страниц
         self.target_urls = target_urls
         self.semaphore = None
-        self.logger = logger
+        self._logger = logger
+        # todo хранить тут не только скачанные страницы, но ещё и ошибки
         self._downloaded_pages = {}
 
     @asyncio.coroutine
     def get(self, *args, **kwargs):
         response = yield from aiohttp.request('GET', *args, **kwargs)
         if response.status == 404:
-            self.logger.error('Сервер "{}" недоступен (404 error)'.format(args[0]))
+            self._logger.error(
+                'Сервер "{}" недоступен (404 error)'.format(args[0])
+            )
             response.close()
             return '<html></html>'
 
         return (yield from response.text())
 
     @asyncio.coroutine
-    def downlaod_html(self, site_name, film_name, url):
+    def download_html(self, site_name, film_name, url):
         """
         Скачивает страницу и передает html для обработки куда-то дальше
         """
@@ -39,11 +42,11 @@ class Downloader:
             try:
                 page = yield from self.get(url)
             except ValueError:
-                self.logger.error(
+                self._logger.error(
                     'URL "{}" имеет неправильный формат'.format(url)
                 )
             except aiohttp.errors.ClientConnectionError:
-                self.logger.error(
+                self._logger.error(
                     'Ошибка подключени к "{}". Возможно отсутствует '
                     'подключение к интернету.'.format(url)
                 )
@@ -51,8 +54,17 @@ class Downloader:
                 self._downloaded_pages[site_name].append([film_name, page])
 
     @asyncio.coroutine
-    def _run_wrapper(self, tasks: list, future: asyncio.Future):
-        yield from asyncio.get_event_loop().create_task(asyncio.wait(tasks))
+    def _task_wrapper(self, tasks: list, future: asyncio.Future):
+        try:
+            yield from asyncio.get_event_loop().create_task(
+                asyncio.wait_for(asyncio.wait(tasks), 100)
+            )
+        except asyncio.TimeoutError:
+            self._logger.error(
+                'TimeoutError, первышено время обновления. Получены данные '
+                'только с части сайтов'
+            )
+
         future.set_result(self._downloaded_pages)
 
     def run(self, future: asyncio.Future):
@@ -64,10 +76,10 @@ class Downloader:
         for site_name, urls in self.target_urls.urls.items():
             self._downloaded_pages[site_name] = []
             for i in urls:
-                tasks.append(self.downlaod_html(site_name, *i))
+                tasks.append(self.download_html(site_name, *i))
 
         self.semaphore = asyncio.Semaphore(self.limit)
-        asyncio.get_event_loop().create_task(self._run_wrapper(tasks, future))
+        asyncio.get_event_loop().create_task(self._task_wrapper(tasks, future))
 
 
 if __name__ == '__main__':

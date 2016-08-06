@@ -106,8 +106,12 @@ com_crashlytics_export_strings.xml
 crashlytics.properties
 crashlytics-build.properties
 
-# Файлы настройки файловых менеджеров
+# Файлы c настройками файловых менеджеров
 .directory
 .DS_Store
+
+# Файлы проекта, которые не нужно обновлять или загружать вообще в реппозиторий
 *.db
+log
+sites.conf
 

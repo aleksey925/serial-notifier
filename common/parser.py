@@ -60,7 +60,12 @@ def seasonvar(page):
             season = re.findall('(\d+) сезон', data)
             season = int(season[0]) if season else 1
 
-            series = re.findall('(\d+-{0,1}\d{0,}) серия.{0,}\)', data)[0]
+            try:
+                series = re.findall('(\d+-{0,1}\d{0,}) серия.{0,}\)', data)[0]
+            except IndexError:
+                # Возникает если попадается строка без указания вышедшей серии
+                # (25.05.2016 сезон полностью (Субтитры) из 16)
+                series = re.findall('из (\d+)', data)[0]
 
             # Проверяем сколько серий вышло, 1 или несколько
             if '-' in series:

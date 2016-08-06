@@ -119,6 +119,8 @@ class ParserHTML(QtCore.QThread):
         serials_data = parse_serial_page(self.data)
         self.s_data_ready.emit(serials_data)
 
+        self.data.clear()  # fixme
+
 
 class DBWorker(QtCore.QThread):
     """

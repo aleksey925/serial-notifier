@@ -33,7 +33,7 @@ class ConfigsProgram:
         self.read()
 
     def read(self):
-        self.conf = {}
+        self.conf.clear()
 
         self.config.read(join(self.path, 'setting.conf'))
 
