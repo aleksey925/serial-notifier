@@ -1,30 +1,6 @@
-import os
 import logging
 
 from PyQt4 import QtGui
-from sqlalchemy import create_engine
-
-from model import Base
-from project_settings import db_url
-from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy.orm.session import Session
-
-
-def create_db():
-    engine = create_engine(db_url)
-    Base.metadata.create_all(engine)
-
-
-def create_db_session() -> Session:
-    """
-    Создает сессию работы с БД
-    """
-    if not os.path.exists(db_url.replace('sqlite:////', '')):
-        create_db()
-
-    engine = create_engine(db_url)
-    new_session = scoped_session(sessionmaker(bind=engine))
-    return new_session()
 
 
 def create_logger(path, system_tray: QtGui.QSystemTrayIcon):

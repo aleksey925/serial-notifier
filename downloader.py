@@ -6,12 +6,12 @@ import logging
 
 import aiohttp
 
-from setting import SerialsUrls
+from configparsers import SerialsUrls
 
 
 class Downloader:
     """
-    Асинхронный загрузчик HTML страниц для парсинга
+    Асинхронный загрузчик HTML страниц сайтов с сериалами
     """
     def __init__(self, target_urls: SerialsUrls, logger: logging.Logger, limit=1000):
         self.limit = limit  # Количество одновременно скачиваемых страниц
@@ -83,6 +83,8 @@ class Downloader:
 
 
 if __name__ == '__main__':
+    from configs import base_dir
+
     def res(data):
         print(data)
         print(data.result())
@@ -93,17 +95,7 @@ if __name__ == '__main__':
     future = asyncio.Future()
     future.add_done_callback(res)
 
-    urls = {
-        'filin.tv': [
-            ['Флэш 2', 'http://filin.tv/fantastika/3825-flesh-the-flash-2-sezon.html'],
-            ['Колония', "http://filin.tv/fantastika/3973-koloniya-colony-1-sezon.html"],
-            ['Пространство', "http://filin.tv/fantastika/3919-prostranstvo-the-expanse.html"],
-            ['Гримм', "http://filin.tv/fantastika/1176-grimm-grimm-1-sezon-onlajn.html"],
-        ],
-        'seasonvar': [
-            ['Вызов', 'http://seasonvar.ru/serial-11851-Vyzov_2013-3-season.html']
-        ]
-    }
+    urls = SerialsUrls(base_dir)
     d = Downloader(urls, logging.getLogger())
     d.run(future)
 

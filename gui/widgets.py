@@ -6,7 +6,7 @@ from os.path import join
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import QModelIndex
 
-from project_settings import base_dir
+from configs import base_dir
 
 
 class SearchLineEdit(QtGui.QLineEdit):
