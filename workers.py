@@ -5,8 +5,8 @@ import asyncio
 
 from queue import Queue
 
-from PyQt4 import QtCore
-from PyQt4.QtCore import Qt, pyqtSignal
+from PyQt5 import QtCore
+from PyQt5.QtCore import Qt, pyqtSignal
 
 from parser import AsyncParserHTML
 from downloader import Downloader
@@ -24,16 +24,15 @@ class UpgradeTimer(QtCore.QTimer):
     s_upgrade_complete = pyqtSignal(object, object, object,
                                     name='upgrade_complete')
 
-    def __init__(self, db_worker, urls, conf_program, logger):
+    def __init__(self, db_worker, urls, conf_program):
         super(UpgradeTimer, self).__init__()
 
         # Сигнализирует производится уже обработка данных или нет
         self.flag_progress = Queue(maxsize=1)
         self.urls = urls
         self.conf_program = conf_program
-        self.logger = logger
 
-        self.loader = Downloader(self.urls, self.logger)
+        self.loader = Downloader(self.urls)
 
         self.db_worker = db_worker
         self.db_worker.s_status_update.connect(self.upgrade_db_complete,

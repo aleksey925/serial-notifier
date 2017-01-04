@@ -1,5 +1,5 @@
-from PyQt4 import QtCore
-from PyQt4.QtCore import Qt
+from PyQt5 import QtCore
+from PyQt5.QtCore import Qt
 from sqlalchemy import and_
 
 from .models import Serial, Series

@@ -1,5 +1,7 @@
-from PyQt4 import QtCore
-from PyQt4.QtCore import Qt
+import logging
+
+from PyQt5 import QtCore
+from PyQt5.QtCore import Qt
 
 from parser.services import parse_serial_page
 

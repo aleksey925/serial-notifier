@@ -5,6 +5,7 @@
 {'Серия': [12, 13], 'Сезон': 3}
 """
 import re
+import logging
 
 import lxml.html
 
@@ -84,8 +85,7 @@ def filmixnet(page):
     season = re.findall('([\d-]+) сезон', data, re.IGNORECASE)
 
     if not series:
-        print('Ошибка парсинга!')  # todo добавить логирование
-        return
+        raise Exception
 
     season = 1 if not season else int(season[0])
 
@@ -109,14 +109,22 @@ def parse_serial_page(serial_raw_data: dict):
     """
     Вытаскивает с html страниц данные о последней вышешей серии
     :argument serial_raw_data HTML страницы с информацией о сериалах
+    :argument logger логгер
     """
     result = {}
+    logger = logging.getLogger('main')
 
     for site_name, pages in serial_raw_data.items():
         result[site_name] = {}
         for serial_name, html_page in pages:
-            temp = parsers[site_name](html_page)
-            if temp:
-                result[site_name][serial_name] = temp
+            try:
+                res = parsers[site_name](html_page)
+            except Exception:
+                logger.fatal(
+                    'Ошибка парсинга. {}: {}'.format(site_name, serial_name)
+                )
+            else:
+                if res:
+                    result[site_name][serial_name] = res
 
     return result

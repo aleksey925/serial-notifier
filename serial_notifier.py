@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
-import os
 import sys
 import asyncio
 
 from os.path import join
 
-from configs import base_dir
+from configs import base_dir, log_path
 from gui.mainwindow import MainWindow
+from loggers import create_logger
 
-os.environ['QUAMASH_QTIMPL'] = 'PyQt4'
 from quamash import QEventLoop
-from PyQt4 import QtGui
+from PyQt5 import QtWidgets, QtGui
 
 
 # todo добавить кнопку прерывания обновления
 # todo изменить виджет для отображения списка сериалов
 # todo при изменении статуса фильма не перезагружать весь виджет
-app = QtGui.QApplication(sys.argv)
+app = QtWidgets.QApplication(sys.argv)
 app.setWindowIcon(QtGui.QIcon(join(base_dir, 'icons/app-icon-512x512.png')))
 
 loop = QEventLoop(app)
 asyncio.set_event_loop(loop)
+
+create_logger(log_path)
 
 window = MainWindow()
 window.setWindowTitle('В курсе новых серий')

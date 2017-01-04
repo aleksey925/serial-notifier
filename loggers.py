@@ -1,15 +1,13 @@
 import logging
 
-from PyQt4 import QtGui
 
-
-def create_logger(path, system_tray: QtGui.QSystemTrayIcon):
+def create_logger(path):
     """
     Создаёт объект, который отвечат за логирование
 
     :argument path: str Путь в который будут писаться логи
     """
-    log = logging.getLogger(__name__)
+    log = logging.getLogger('main')
     log.setLevel(logging.DEBUG)
 
     # Определяется формат логов и добавляется к обработчику
@@ -30,15 +28,13 @@ def create_logger(path, system_tray: QtGui.QSystemTrayIcon):
     console_handler.setLevel(logging.DEBUG)
     console_handler.setFormatter(console_formatter)
 
-    system_tray_handler = logging.Handler()
-    system_tray_handler.emit = lambda record: system_tray.showMessage(
-        'Ошибка', system_tray_handler.format(record)
-    )
-    system_tray_handler.setLevel(logging.ERROR)
+    # system_tray_handler = logging.Handler()
+    # system_tray_handler.emit = lambda record: system_tray.showMessage(
+    #     'Ошибка', system_tray_handler.format(record)
+    # )
+    # system_tray_handler.setLevel(logging.ERROR)
 
     # добавляем обработчики в _logger
     log.addHandler(file_handler)
     log.addHandler(console_handler)
-    log.addHandler(system_tray_handler)
-
-    return log
+    # log.addHandler(system_tray_handler)

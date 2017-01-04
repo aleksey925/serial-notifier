@@ -13,11 +13,11 @@ class Downloader:
     """
     Асинхронный загрузчик HTML страниц сайтов с сериалами
     """
-    def __init__(self, target_urls: SerialsUrls, logger: logging.Logger, limit=1000):
+    def __init__(self, target_urls: SerialsUrls, limit=1000):
         self.limit = limit  # Количество одновременно скачиваемых страниц
         self.target_urls = target_urls
         self.semaphore = None
-        self._logger = logger
+        self._logger = logging.getLogger('main')
         # todo хранить тут не только скачанные страницы, но ещё и ошибки
         self._downloaded_pages = {}
 
@@ -74,9 +74,16 @@ class Downloader:
         tasks = []
         self._downloaded_pages.clear()
         for site_name, urls in self.target_urls.urls.items():
+            if len(urls) == 1 and urls[0][0] == '':
+                continue
+
             self._downloaded_pages[site_name] = []
             for i in urls:
                 tasks.append(self.download_html(site_name, *i))
+
+        if not tasks:
+            future.set_result({})
+            return
 
         self.semaphore = asyncio.Semaphore(self.limit)
         asyncio.get_event_loop().create_task(self._task_wrapper(tasks, future))

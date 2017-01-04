@@ -3,6 +3,6 @@ sqlalchemy==1.0.11
 quamash
 cssselect
 lxml
-PyQt4
+PyQt5
 
 

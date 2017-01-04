@@ -2,18 +2,17 @@ import sys
 import time
 from os.path import join, exists, split
 
-from PyQt4 import QtCore, QtGui
-from PyQt4.QtCore import QCoreApplication
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QCoreApplication
 
 from gui.widgets import SearchLineEdit, SortFilterProxyModel, BoardNotification
 from workers import UpgradeTimer
 from db.managers import DbManager
-from loggers import create_logger
 from configparsers import SerialsUrls, ConfigsProgram
 from configs import base_dir
 
 
-class SystemTrayIcon(QtGui.QSystemTrayIcon):
+class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
     def __init__(self, parent=None):
         super(SystemTrayIcon, self).__init__(parent)
         self.setIcon(QtGui.QIcon(join(base_dir, 'icons/app-icon-48x48.png')))
@@ -46,7 +45,7 @@ class SystemTrayIcon(QtGui.QSystemTrayIcon):
             self.show_window()
 
     def build_menu(self):
-        menu = QtGui.QMenu(self.parent())
+        menu = QtWidgets.QMenu(self.parent())
 
         self.a_open = menu.addAction('Открыть', self.show_window)
         self.a_update = menu.addAction('Обновить')
@@ -81,7 +80,7 @@ class SystemTrayIcon(QtGui.QSystemTrayIcon):
         # self.a_load_from_bd.setDisabled(False)
 
 
-class SerialTree(QtGui.QWidget):
+class SerialTree(QtWidgets.QWidget):
     """
     Виджет для отображения списка сериалов
     """
@@ -98,10 +97,10 @@ class SerialTree(QtGui.QWidget):
         }
 
         # Виджеты
-        self.view = QtGui.QTreeView()
+        self.view = QtWidgets.QTreeView()
         self.model = QtGui.QStandardItemModel()
         self.filter_by_name = SortFilterProxyModel()
-        self.context_menu = QtGui.QMenu()
+        self.context_menu = QtWidgets.QMenu()
 
         self.build_widgets()
         self.create_context_menu()
@@ -120,7 +119,7 @@ class SerialTree(QtGui.QWidget):
         self.filter_by_name.setSourceModel(self.model)
         self.view.setModel(self.filter_by_name)
 
-        main_layout = QtGui.QVBoxLayout()
+        main_layout = QtWidgets.QVBoxLayout()
         main_layout.addWidget(self.view)
         main_layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(main_layout)
@@ -210,7 +209,7 @@ class SerialTree(QtGui.QWidget):
                 season.appendRow(s)
 
 
-class MainWindow(QtGui.QMainWindow):
+class MainWindow(QtWidgets.QMainWindow):
 
     # Служит для отправки заданий в DbManager
     s_send_db_task = QtCore.pyqtSignal(object, name='send_task')
@@ -220,19 +219,18 @@ class MainWindow(QtGui.QMainWindow):
 
         # Настройки данного окна
         self.set_position()
-        self.main_layout = QtGui.QGridLayout()
-        main_widget = QtGui.QWidget()
+        self.main_layout = QtWidgets.QGridLayout()
+        main_widget = QtWidgets.QWidget()
         main_widget.setLayout(self.main_layout)
         self.setCentralWidget(main_widget)
 
         # Виджеты
         self.tray_icon = SystemTrayIcon(parent=self)
         self.search_field = SearchLineEdit(self)
-        self.lab_search_field = QtGui.QLabel('Поиск: ')
+        self.lab_search_field = QtWidgets.QLabel('Поиск: ')
         self.serial_tree = SerialTree(parent=self)
         self.notice = BoardNotification()
 
-        self.logger = create_logger(join(base_dir, 'log.txt'), self.tray_icon)
         self.urls = SerialsUrls(base_dir)
         self.conf_program = ConfigsProgram(base_dir)
 
@@ -242,7 +240,7 @@ class MainWindow(QtGui.QMainWindow):
                                                    QtCore.Qt.QueuedConnection)
 
         self.upgrade_timer = UpgradeTimer(self.db_worker, self.urls,
-                                          self.conf_program, self.logger)
+                                          self.conf_program)
         self.upgrade_timer.s_upgrade_complete.connect(self.upgrade_complete)
 
         self.init_widgets()
@@ -263,7 +261,7 @@ class MainWindow(QtGui.QMainWindow):
         self.main_layout.addWidget(self.notice, 1, 2, 1, 2)
 
     def set_position(self):
-        screen = QtGui.QDesktopWidget().screenGeometry()
+        screen = QtWidgets.QDesktopWidget().screenGeometry()
         self.setGeometry(0, 0, 430, 500)
         self.move(screen.width() - 320, 0)
 

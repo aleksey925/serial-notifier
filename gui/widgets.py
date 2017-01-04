@@ -3,26 +3,27 @@
 """
 from os.path import join
 
-from PyQt4 import QtGui, QtCore
-from PyQt4.QtCore import QModelIndex
+from PyQt5 import QtGui, QtCore, QtWidgets
+from PyQt5.QtWidgets import QStyle
+from PyQt5.QtCore import QModelIndex
 
 from configs import base_dir
 
 
-class SearchLineEdit(QtGui.QLineEdit):
+class SearchLineEdit(QtWidgets.QLineEdit):
     """
     QLineEdit с кнопкой для очистки поля
     """
     def __init__(self, parent=None):
         super(SearchLineEdit, self).__init__(parent)
 
-        self.button = QtGui.QToolButton(self)
+        self.button = QtWidgets.QToolButton(self)
         self.button.setIcon(QtGui.QIcon(join(base_dir, 'icons/clear.png')))
         self.button.setStyleSheet('border: 0px; padding: 0px;')
         self.button.setCursor(QtCore.Qt.ArrowCursor)
         self.button.clicked.connect(self.clear)
 
-        frame_width = self.style().pixelMetric(QtGui.QStyle.PM_DefaultFrameWidth)
+        frame_width = self.style().pixelMetric(QStyle.PM_DefaultFrameWidth)
         button_size = self.button.sizeHint()
 
         self.setStyleSheet(
@@ -36,13 +37,15 @@ class SearchLineEdit(QtGui.QLineEdit):
 
     def resizeEvent(self, event):
         button_size = self.button.sizeHint()
-        frameWidth = self.style().pixelMetric(QtGui.QStyle.PM_DefaultFrameWidth)
-        self.button.move(self.rect().right() - frameWidth - button_size.width(),
-                         (self.rect().bottom() - button_size.height() + 1)/2)
+        frameWidth = self.style().pixelMetric(QStyle.PM_DefaultFrameWidth)
+        self.button.move(
+            self.rect().right() - frameWidth - button_size.width(),
+            (self.rect().bottom() - button_size.height() + 1) / 2
+        )
         super(SearchLineEdit, self).resizeEvent(event)
 
 
-class Notification(QtGui.QLabel):
+class Notification(QtWidgets.QLabel):
     """
     Уведомление, которое отображается на доске уведомлений. Содержит текст
     уведомления и крестик для его удаления
@@ -52,12 +55,12 @@ class Notification(QtGui.QLabel):
 
         self.setText('\n{}\n'.format(massage))
 
-        self.button = QtGui.QToolButton(self)
+        self.button = QtWidgets.QToolButton(self)
         self.button.setIcon(QtGui.QIcon('icons/cross.png'))
         self.button.setStyleSheet('border: 0px; padding: 0px;')
         self.button.setCursor(QtCore.Qt.ArrowCursor)
 
-        frame_width = self.style().pixelMetric(QtGui.QStyle.PM_DefaultFrameWidth)
+        frame_width = self.style().pixelMetric(QStyle.PM_DefaultFrameWidth)
         button_size = self.button.sizeHint()
 
         self.setStyleSheet("""padding-right: {0}px;
@@ -81,13 +84,13 @@ class Notification(QtGui.QLabel):
         height = self.rect().height()
 
         button_size = self.button.sizeHint()
-        frame_width = self.style().pixelMetric(QtGui.QStyle.PM_DefaultFrameWidth)
+        frame_width = self.style().pixelMetric(QStyle.PM_DefaultFrameWidth)
         self.button.move(width - frame_width - button_size.width(),
                          height * 5 // 100)
         super(Notification, self).resizeEvent(event)
 
 
-class BoardNotification(QtGui.QWidget):
+class BoardNotification(QtWidgets.QWidget):
     """
     Доска на которой отображаются уведомления о выходе новых серий
     """
@@ -96,20 +99,20 @@ class BoardNotification(QtGui.QWidget):
 
         self.all_notification = []
 
-        self.scroll_layout = QtGui.QVBoxLayout()
+        self.scroll_layout = QtWidgets.QVBoxLayout()
 
-        self.scroll_widget = QtGui.QWidget()
+        self.scroll_widget = QtWidgets.QWidget()
         self.scroll_widget.setLayout(self.scroll_layout)
 
-        self.scroll_area = QtGui.QScrollArea()
+        self.scroll_area = QtWidgets.QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setWidget(self.scroll_widget)
 
-        self.main_layout = QtGui.QVBoxLayout()
+        self.main_layout = QtWidgets.QVBoxLayout()
         self.main_layout.addWidget(self.scroll_area)
         self.setLayout(self.main_layout)
 
-        self.default_label = QtGui.QLabel(
+        self.default_label = QtWidgets.QLabel(
             '{}Уведомлений нет{}'.format(' ' * 14, ' ' * 14)
         )
         self.scroll_layout.addWidget(self.default_label)
@@ -126,7 +129,9 @@ class BoardNotification(QtGui.QWidget):
         notification.button.clicked.connect(
             lambda i, widget=notification: self.remove_notification(widget)
         )
-        self.scroll_layout.insertWidget(len(self.all_notification), notification)
+        self.scroll_layout.insertWidget(
+            len(self.all_notification), notification
+        )
         self.all_notification.append(notification)
 
         self._update_width_area()
@@ -160,7 +165,7 @@ class BoardNotification(QtGui.QWidget):
         self.setMinimumWidth(max(new_width))
 
 
-class SortFilterProxyModel(QtGui.QSortFilterProxyModel):
+class SortFilterProxyModel(QtCore.QSortFilterProxyModel):
     """
     По умолчанию у найденного элемента не отображаются дочерние элементы
     в данной реализации это изменено
