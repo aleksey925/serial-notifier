@@ -37,9 +37,9 @@ class SearchLineEdit(QtWidgets.QLineEdit):
 
     def resizeEvent(self, event):
         button_size = self.button.sizeHint()
-        frameWidth = self.style().pixelMetric(QStyle.PM_DefaultFrameWidth)
+        frame_width = self.style().pixelMetric(QStyle.PM_DefaultFrameWidth)
         self.button.move(
-            self.rect().right() - frameWidth - button_size.width(),
+            self.rect().right() - frame_width - button_size.width(),
             (self.rect().bottom() - button_size.height() + 1) / 2
         )
         super(SearchLineEdit, self).resizeEvent(event)
@@ -109,6 +109,10 @@ class BoardNotification(QtWidgets.QWidget):
         self.scroll_area.setWidget(self.scroll_widget)
 
         self.main_layout = QtWidgets.QVBoxLayout()
+        margins = self.main_layout.contentsMargins()
+        margins.setTop(0)
+        margins.setBottom(0)
+        self.main_layout.setContentsMargins(margins)
         self.main_layout.addWidget(self.scroll_area)
         self.setLayout(self.main_layout)
 

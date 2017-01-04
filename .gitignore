@@ -112,6 +112,6 @@ crashlytics-build.properties
 
 # Файлы проекта, которые не нужно обновлять или загружать вообще в реппозиторий
 *.db
-log
+log.txt
 sites.conf
 
