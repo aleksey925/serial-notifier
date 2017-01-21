@@ -117,7 +117,7 @@ class BoardNotification(QtWidgets.QWidget):
         self.setLayout(self.main_layout)
 
         self.default_label = QtWidgets.QLabel(
-            '{}Уведомлений нет{}'.format(' ' * 14, ' ' * 14)
+            '{}Уведомлений нет{}'.format(' ' * 14, ' ' * 5)
         )
         self.scroll_layout.addWidget(self.default_label)
         self.scroll_layout.addStretch(0)

@@ -13,10 +13,8 @@ from PyQt5 import QtWidgets, QtGui
 
 
 # todo добавить кнопку прерывания обновления
-# todo изменить виджет для отображения списка сериалов
-# todo при изменении статуса фильма не перезагружать весь виджет
 app = QtWidgets.QApplication(sys.argv)
-app.setWindowIcon(QtGui.QIcon(join(base_dir, 'icons/app-icon-512x512.png')))
+app.setWindowIcon(QtGui.QIcon(join(base_dir, 'icons/app-512x512.png')))
 
 loop = QEventLoop(app)
 asyncio.set_event_loop(loop)

@@ -76,6 +76,8 @@ class DbManager(QtCore.QThread):
         """
         Ставит у сериала пометку, что серия/серии просмотрены
         """
+        status = True if status == 'True' else False
+
         if level == 0:
             series = self.db_session.query(Series).filter(
                 Serial.name == data['name'], Series.id_serial == Serial.id
@@ -99,8 +101,6 @@ class DbManager(QtCore.QThread):
             self.db_session.commit()
         except Exception:
             self.db_session.rollback()
-        else:
-            self.get_serials()
 
     def upgrade_db(self, serials_data: dict):
         """

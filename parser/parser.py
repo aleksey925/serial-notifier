@@ -1,5 +1,3 @@
-import logging
-
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
 

@@ -21,9 +21,8 @@ class Downloader:
         # todo хранить тут не только скачанные страницы, но ещё и ошибки
         self._downloaded_pages = {}
 
-    @asyncio.coroutine
-    def get(self, *args, **kwargs):
-        response = yield from aiohttp.request('GET', *args, **kwargs)
+    async def get(self, *args, **kwargs):
+        response = await aiohttp.request('GET', *args, **kwargs)
         if response.status == 404:
             self._logger.error(
                 'Сервер "{}" недоступен (404 error)'.format(args[0])
@@ -31,16 +30,15 @@ class Downloader:
             response.close()
             return '<html></html>'
 
-        return (yield from response.text())
+        return await response.text()
 
-    @asyncio.coroutine
-    def download_html(self, site_name, film_name, url):
+    async def download_html(self, site_name, film_name, url):
         """
         Скачивает страницу и передает html для обработки куда-то дальше
         """
-        with (yield from self.semaphore):
+        async with self.semaphore:
             try:
-                page = yield from self.get(url)
+                page = await self.get(url)
             except ValueError:
                 self._logger.error(
                     'URL "{}" имеет неправильный формат'.format(url)
@@ -53,10 +51,9 @@ class Downloader:
             else:
                 self._downloaded_pages[site_name].append([film_name, page])
 
-    @asyncio.coroutine
-    def _task_wrapper(self, tasks: list, future: asyncio.Future):
+    async def _task_wrapper(self, tasks: list, future: asyncio.Future):
         try:
-            yield from asyncio.get_event_loop().create_task(
+            await asyncio.get_event_loop().create_task(
                 asyncio.wait_for(asyncio.wait(tasks), 100)
             )
         except asyncio.TimeoutError:
@@ -103,7 +100,7 @@ if __name__ == '__main__':
     future.add_done_callback(res)
 
     urls = SerialsUrls(base_dir)
-    d = Downloader(urls, logging.getLogger())
+    d = Downloader(urls)
     d.run(future)
 
     loop.run_forever()

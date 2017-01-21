@@ -78,7 +78,7 @@ def seasonvar(page):
             return {'Серия': series, 'Сезон': season}
 
 
-def filmixnet(page):
+def filmixme(page):
     parser = lxml.html.fromstring(page)
     data = parser.cssselect('.added-info')[0].text
     series = re.findall('([\d-]+) серия', data, re.IGNORECASE)
@@ -101,7 +101,7 @@ def filmixnet(page):
 parsers = {
     'filin.tv': filintv,
     'seasonvar': seasonvar,
-    'filmix.net': filmixnet
+    'filmix.me': filmixme
 }
 
 
