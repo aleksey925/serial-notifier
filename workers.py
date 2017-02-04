@@ -24,11 +24,12 @@ class UpgradeTimer(QtCore.QTimer):
     s_upgrade_complete = pyqtSignal(object, object, object,
                                     name='upgrade_complete')
 
-    def __init__(self, db_worker, urls, conf_program):
+    def __init__(self, tray_icon, db_worker, urls, conf_program):
         super(UpgradeTimer, self).__init__()
 
         # Сигнализирует производится уже обработка данных или нет
         self.flag_progress = Queue(maxsize=1)
+        self.tray_icon = tray_icon
         self.urls = urls
         self.conf_program = conf_program
 
@@ -58,6 +59,7 @@ class UpgradeTimer(QtCore.QTimer):
             self.flag_progress.put(type_run)
             f_download_complete = asyncio.Future()
             f_download_complete.add_done_callback(self.download_complete)
+            self.tray_icon.update_start()
 
             self.loader.run(f_download_complete)
 

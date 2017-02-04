@@ -1,3 +1,4 @@
+import re
 import sys
 import time
 from os.path import join, exists, split
@@ -21,9 +22,8 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
 
         self.icons = {
             'normal': QtGui.QIcon(join(base_dir, 'icons/app-48x48.png')),
-            'update': QtGui.QMovie(join(base_dir, 'icons/app-update-48x48.gif'))
+            'update': QtGui.QIcon(join(base_dir, 'icons/app-sync-48x48.png'))
         }
-        self.icons['update'].frameChanged.connect(self._update_icon)
         self.setIcon(self.icons['normal'])
 
         # Элементы меню
@@ -38,18 +38,11 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         self.show()
 
     def change_icon(self, state):
+        self.setIcon(self.icons[state])
         if state == 'normal':
-            self.setIcon(self.icons[state])
-            self.icons['update'].stop()
             self.setToolTip('В курсе новых серий')
         else:
             self.setToolTip('Ищем новые серии...')
-            self.icons['update'].start()
-
-    def _update_icon(self):
-        icon = QtGui.QIcon()
-        icon.addPixmap(self.icons['update'].currentPixmap())
-        self.setIcon(icon)
 
     def click_trap(self, reason):
         """
@@ -147,7 +140,8 @@ class SerialTree(QtWidgets.QWidget):
         def get_icon(row, column):
             index = self.view.model().index(row, column)
             index = self.view.model().mapToSource(index)
-            return self.model.itemFromIndex(index).icon().cacheKey()
+            item = self.model.itemFromIndex(index)
+            return item.icon().cacheKey() if item else 0
 
         count = self.model.rowCount()
         parent_index = self.model.invisibleRootItem().index()
@@ -355,7 +349,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.search_field = SearchLineEdit(self)
         self.lab_search_field = QtWidgets.QLabel('Поиск: ')
         self.serial_tree = SerialTree(parent=self)
-        self.notice = BoardNotification()
+        self.notice = BoardNotification(self.search_field)
         self.filter_by_status = QtWidgets.QComboBox()
 
         self.urls = SerialsUrls(base_dir)
@@ -366,8 +360,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.db_worker.s_serials_extracted.connect(self.update_list_serial,
                                                    QtCore.Qt.QueuedConnection)
 
-        self.upgrade_timer = UpgradeTimer(self.db_worker, self.urls,
-                                          self.conf_program)
+        self.upgrade_timer = UpgradeTimer(self.tray_icon, self.db_worker,
+                                          self.urls, self.conf_program)
         self.upgrade_timer.s_upgrade_complete.connect(self.upgrade_complete)
 
         self.init_widgets()
@@ -484,14 +478,16 @@ class MainWindow(QtWidgets.QMainWindow):
     @staticmethod
     def prepare_message(data):
         result_message = ''
+        msg_pattern = ('<a style="color: white" href="{0}">{0}</a>: '
+                       'Сезон {1}, Серия {2}<br>')
         for site_name, serials in data.items():
-            result_message += '{}\n'.format(site_name)
+            result_message += '{}<br>'.format(site_name)
             for serial_name, i in serials.items():
-                result_message += '{}: Сезон {}, Серия {}\n'.format(
+                result_message += msg_pattern.format(
                     serial_name, i['Сезон'], ', '.join(map(str, i['Серия']))
                 )
-            result_message += '\n'
-        return result_message.strip()
+            result_message += '<br>'
+        return re.sub('(<br>)*$', '', result_message)
 
     def update_list_serial(self, all_serials):
         """

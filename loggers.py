@@ -12,11 +12,11 @@ def create_logger(path):
 
     # Определяется формат логов и добавляется к обработчику
     file_formatter = logging.Formatter(
-        '#%(levelname)-s [%(asctime)s]  %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        ('#%(levelname)-s, %(pathname)s, line %(lineno)d, [%(asctime)s]: '
+         '%(message)s'), datefmt='%Y-%m-%d %H:%M:%S'
     )
-    console_formatter = logging.Formatter(('#%(levelname)-s, line %(lineno)d:'
-                                           ' %(message)s'))
+    console_formatter = logging.Formatter(('#%(levelname)-s, %(pathname)s, '
+                                           'line %(lineno)d: %(message)s'))
 
     # Создаётся обработчик,который будет писать сообщения в файл
     file_handler = logging.FileHandler(path)

@@ -4,5 +4,6 @@ quamash
 cssselect
 lxml
 PyQt5
+requests
 
 

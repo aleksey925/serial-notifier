@@ -20,7 +20,7 @@ class SearchLineEdit(QtWidgets.QLineEdit):
         self.button = QtWidgets.QToolButton(self)
         self.button.setIcon(QtGui.QIcon(join(base_dir, 'icons/clear.png')))
         self.button.setStyleSheet('border: 0px; padding: 0px;')
-        self.button.setCursor(QtCore.Qt.ArrowCursor)
+        self.button.setCursor(QtCore.Qt.PointingHandCursor)
         self.button.clicked.connect(self.clear)
 
         frame_width = self.style().pixelMetric(QStyle.PM_DefaultFrameWidth)
@@ -31,8 +31,10 @@ class SearchLineEdit(QtWidgets.QLineEdit):
                 button_size.width() + frame_width + 1)
         )
         self.setMinimumSize(
-            max(self.minimumSizeHint().width(), button_size.width() + frame_width * 2 + 2),
-            max(self.minimumSizeHint().height(), button_size.height() + frame_width * 2 + 2)
+            max(self.minimumSizeHint().width(),
+                button_size.width() + frame_width * 2 + 2),
+            max(self.minimumSizeHint().height(),
+                button_size.height() + frame_width * 2 + 2)
         )
 
     def resizeEvent(self, event):
@@ -50,15 +52,20 @@ class Notification(QtWidgets.QLabel):
     Уведомление, которое отображается на доске уведомлений. Содержит текст
     уведомления и крестик для его удаления
     """
+    icon_close = lambda self: QtGui.QIcon(join(base_dir, 'icons/cross.png'))
+
     def __init__(self, massage, *args, **kwargs):
         super(Notification, self).__init__(*args, **kwargs)
 
-        self.setText('\n{}\n'.format(massage))
+        if callable(self.icon_close):
+            self.icon_close = self.icon_close()
+
+        self.setText('<br>{}<br>'.format(massage))
 
         self.button = QtWidgets.QToolButton(self)
-        self.button.setIcon(QtGui.QIcon('icons/cross.png'))
+        self.button.setIcon(self.icon_close)
         self.button.setStyleSheet('border: 0px; padding: 0px;')
-        self.button.setCursor(QtCore.Qt.ArrowCursor)
+        self.button.setCursor(QtCore.Qt.PointingHandCursor)
 
         frame_width = self.style().pixelMetric(QStyle.PM_DefaultFrameWidth)
         button_size = self.button.sizeHint()
@@ -94,8 +101,9 @@ class BoardNotification(QtWidgets.QWidget):
     """
     Доска на которой отображаются уведомления о выходе новых серий
     """
-    def __init__(self):
+    def __init__(self, search_field):
         super(BoardNotification, self).__init__()
+        self.search_field = search_field
 
         self.all_notification = []
 
@@ -130,6 +138,7 @@ class BoardNotification(QtWidgets.QWidget):
             self.all_notification[0].hide()
 
         notification = Notification(massage)
+        notification.linkActivated.connect(self._link_activated)
         notification.button.clicked.connect(
             lambda i, widget=notification: self.remove_notification(widget)
         )
@@ -139,6 +148,9 @@ class BoardNotification(QtWidgets.QWidget):
         self.all_notification.append(notification)
 
         self._update_width_area()
+
+    def _link_activated(self, link):
+        self.search_field.setText(link)
 
     def remove_notification(self, widget):
         widget.deleteLater()

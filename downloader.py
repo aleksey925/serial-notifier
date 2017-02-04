@@ -5,6 +5,7 @@ import asyncio
 import logging
 
 import aiohttp
+import requests
 
 from configparsers import SerialsUrls
 
@@ -64,10 +65,24 @@ class Downloader:
 
         future.set_result(self._downloaded_pages)
 
+    def _check_internet_access(self):
+        try:
+            requests.get('http://google.com')
+            return True
+        except requests.exceptions.ConnectionError:
+            self._logger.info(
+                'Отстуствует доступ в интернет, проверьте подключение'
+            )
+            return False
+
     def run(self, future: asyncio.Future):
         """
         Создает задачи и запускает их на исполнение
         """
+        if not self._check_internet_access():
+            future.set_result({})
+            return
+
         tasks = []
         self._downloaded_pages.clear()
         for site_name, urls in self.target_urls.urls.items():
