@@ -1,7 +1,7 @@
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
 
-from parser.services import parse_serial_page
+from parsers.services import parse_serial_page
 
 
 class AsyncParserHTML(QtCore.QThread):

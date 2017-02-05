@@ -17,7 +17,7 @@ def create_db_session() -> Session:
     """
     Создает сессию работы с БД
     """
-    if not os.path.exists(db_url.replace('sqlite:////', '')):
+    if not os.path.exists(db_url.replace('sqlite:///', '')):
         create_db()
 
     engine = create_engine(db_url)

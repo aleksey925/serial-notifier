@@ -17,6 +17,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
     def __init__(self, parent=None):
         super(SystemTrayIcon, self).__init__(parent)
         self.main_window = parent
+
         self.setToolTip('В курсе новых серий')
         self.activated.connect(self.click_trap)
 
@@ -29,13 +30,21 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         # Элементы меню
         self.a_open = None
         self.a_update = None
-        # self.a_load_from_bd = None
         self.a_exit = None
 
         self.build_menu()
-        self.a_update.setDisabled(True)
 
         self.show()
+
+    def build_menu(self):
+        menu = QtWidgets.QMenu(self.parent())
+
+        self.a_open = menu.addAction('Открыть', self.show_window)
+        self.a_update = menu.addAction('Обновить')
+        self.a_update.setDisabled(True)
+        self.a_exit = menu.addAction('Выйти', QCoreApplication.instance().exit)
+
+        self.setContextMenu(menu)
 
     def change_icon(self, state):
         self.setIcon(self.icons[state])
@@ -59,16 +68,6 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         else:
             self.show_window()
 
-    def build_menu(self):
-        menu = QtWidgets.QMenu(self.parent())
-
-        self.a_open = menu.addAction('Открыть', self.show_window)
-        self.a_update = menu.addAction('Обновить')
-        # self.a_load_from_bd = menu.addAction('Синхронизировать с БД')
-        self.a_exit = menu.addAction('Выйти', QCoreApplication.instance().exit)
-
-        self.setContextMenu(menu)
-
     def show_window(self):
         self.parent().show()
         self.main_window.raise_()
@@ -77,12 +76,10 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
     def update_start(self):
         self.change_icon('update')
         self.a_update.setDisabled(True)
-        # self.a_load_from_bd.setDisabled(True)
 
     def update_done(self):
         self.change_icon('normal')
         self.a_update.setDisabled(False)
-        # self.a_load_from_bd.setDisabled(False)
 
 
 class SerialTree(QtWidgets.QWidget):
@@ -438,7 +435,7 @@ class MainWindow(QtWidgets.QMainWindow):
         event.ignore()
         self.hide()
 
-    def run_upgrade(self, future):
+    def run_upgrade(self):
         """
         Запускает процесс получения и парсинга новых данных с сайтов
         """

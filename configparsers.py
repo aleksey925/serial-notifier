@@ -15,7 +15,7 @@ class SerialsUrls:
     def read(self):
         self.urls.clear()
 
-        self.config.read(join(self.path, 'sites.conf'))
+        self.config.read(join(self.path, 'sites.conf'), encoding='utf8')
 
         for section in self.config.sections():
             self.urls[section] = []
@@ -35,7 +35,7 @@ class ConfigsProgram:
     def read(self):
         self.conf.clear()
 
-        self.config.read(join(self.path, 'setting.conf'))
+        self.config.read(join(self.path, 'setting.conf'), encoding='utf8')
 
         for option in self.config['general']:
             if option == 'timeout_refresh':

@@ -1,3 +1,5 @@
+import logging
+
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
 from sqlalchemy import and_
@@ -17,6 +19,7 @@ class DbManager(QtCore.QThread):
     def __init__(self, s_send_db_task):
         super(DbManager, self).__init__()
         self.target = object
+        self._logger = logging.getLogger('main')
         self.s_send_db_task = s_send_db_task
 
         self.db_session = None
@@ -24,11 +27,19 @@ class DbManager(QtCore.QThread):
         self.s_send_db_task.connect(self.fill_target, Qt.QueuedConnection)
 
     def run(self):
-        self.db_session = create_db_session()
+        try:
+            self.db_session = create_db_session()
+        except Exception as err:
+            self._logger.critical(
+                'Невозможно подключиться к БД. {}'.format(str(err))
+            )
+            return
+
         try:
             self.target()
-        except Exception:
+        except Exception as err:
             self.db_session.rollback()
+            self._logger.critical(str(err))
         finally:
             self.db_session.close()
 
@@ -99,8 +110,11 @@ class DbManager(QtCore.QThread):
 
         try:
             self.db_session.commit()
-        except Exception:
+        except Exception as err:
             self.db_session.rollback()
+            self._logger.error(
+                'Не удалось изменит статус. {}'.format(str(err))
+            )
 
     def upgrade_db(self, serials_data: dict):
         """
@@ -130,9 +144,12 @@ class DbManager(QtCore.QThread):
         try:
             self.db_session.commit()
             self.s_status_update.emit('ok', new_data)
-        except Exception:
+        except Exception as err:
             self.db_session.rollback()
             self.s_status_update.emit('error', new_data)
+            self._logger.error(
+                'Не удалось обновить данные в БД. {}'.format(str(err))
+            )
 
     def update_serial(self, serial_name, serial_data):
         """

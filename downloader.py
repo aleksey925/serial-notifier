@@ -19,6 +19,7 @@ class Downloader:
         self.target_urls = target_urls
         self.semaphore = None
         self._logger = logging.getLogger('main')
+
         # todo хранить тут не только скачанные страницы, но ещё и ошибки
         self._downloaded_pages = {}
 
@@ -85,6 +86,7 @@ class Downloader:
 
         tasks = []
         self._downloaded_pages.clear()
+
         for site_name, urls in self.target_urls.urls.items():
             if len(urls) == 1 and urls[0][0] == '':
                 continue
