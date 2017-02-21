@@ -1,6 +1,8 @@
 """
 Дополнительные виджеты для gui
 """
+import re
+
 from os.path import join
 
 from PyQt5 import QtGui, QtCore, QtWidgets
@@ -133,11 +135,11 @@ class BoardNotification(QtWidgets.QWidget):
 
         self._update_width_area()
 
-    def add_notification(self, massage):
+    def add_notification(self, serials_with_updates):
         if len(self.all_notification) == 1:
             self.all_notification[0].hide()
 
-        notification = Notification(massage)
+        notification = Notification(self.prepare_message(serials_with_updates))
         notification.linkActivated.connect(self._link_activated)
         notification.button.clicked.connect(
             lambda i, widget=notification: self.remove_notification(widget)
@@ -151,6 +153,19 @@ class BoardNotification(QtWidgets.QWidget):
 
     def _link_activated(self, link):
         self.search_field.setText(link)
+
+    def prepare_message(self, data):
+        result_message = ''
+        msg_pattern = ('<a style="color: white" href="{0}">{0}</a>: '
+                       'Сезон {1}, Серия {2}<br>')
+        for site_name, serials in data.items():
+            result_message += '{}<br>'.format(site_name)
+            for serial_name, i in serials.items():
+                result_message += msg_pattern.format(
+                    serial_name, i['Сезон'], ', '.join(map(str, i['Серия']))
+                )
+            result_message += '<br>'
+        return re.sub('(<br>)*$', '', result_message)
 
     def remove_notification(self, widget):
         widget.deleteLater()

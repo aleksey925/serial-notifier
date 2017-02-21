@@ -4,67 +4,38 @@
 import asyncio
 import logging
 
-import aiohttp
 import requests
+import aiohttp
+import async_timeout
 
-from configparsers import SerialsUrls
+from configparsers import SerialsUrls, ConfigsProgram
 
 
 class Downloader:
     """
     Асинхронный загрузчик HTML страниц сайтов с сериалами
     """
-    def __init__(self, target_urls: SerialsUrls, limit=1000):
-        self.limit = limit  # Количество одновременно скачиваемых страниц
+    def __init__(self, target_urls: SerialsUrls, conf_program: ConfigsProgram):
         self.target_urls = target_urls
-        self.semaphore = None
+        self.conf_program = conf_program.conf
         self._logger = logging.getLogger('main')
 
-        # todo хранить тут не только скачанные страницы, но ещё и ошибки
         self._downloaded_pages = {}
 
-    async def get(self, *args, **kwargs):
-        response = await aiohttp.request('GET', *args, **kwargs)
-        if response.status == 404:
-            self._logger.error(
-                'Сервер "{}" недоступен (404 error)'.format(args[0])
-            )
-            response.close()
-            return '<html></html>'
-
-        return await response.text()
-
-    async def download_html(self, site_name, film_name, url):
-        """
-        Скачивает страницу и передает html для обработки куда-то дальше
-        """
-        async with self.semaphore:
-            try:
-                page = await self.get(url)
-            except ValueError:
-                self._logger.error(
-                    'URL "{}" имеет неправильный формат'.format(url)
-                )
-            except aiohttp.errors.ClientConnectionError:
-                self._logger.error(
-                    'Ошибка подключени к "{}". Возможно отсутствует '
-                    'подключение к интернету.'.format(url)
-                )
-            else:
-                self._downloaded_pages[site_name].append([film_name, page])
-
-    async def _task_wrapper(self, tasks: list, future: asyncio.Future):
+    async def fetch(self, session, site_name, serial_name, url):
         try:
-            await asyncio.get_event_loop().create_task(
-                asyncio.wait_for(asyncio.wait(tasks), 100)
-            )
-        except asyncio.TimeoutError:
+            async with session.get(url) as response:
+                page = await response.text()
+                self._downloaded_pages[site_name].append([serial_name, page])
+        except ValueError:
             self._logger.error(
-                'TimeoutError, первышено время обновления. Получены данные '
-                'только с части сайтов'
+                'URL "{}" имеет неправильный формат'.format(url)
             )
-
-        future.set_result(self._downloaded_pages)
+        except aiohttp.errors.ClientConnectionError:
+            self._logger.error(
+                'Ошибка подключени к "{}". Возможно отсутствует '
+                'подключение к интернету.'.format(url)
+            )
 
     def _check_internet_access(self):
         try:
@@ -76,48 +47,57 @@ class Downloader:
             )
             return False
 
-    def run(self, future: asyncio.Future):
-        """
-        Создает задачи и запускает их на исполнение
-        """
+    async def run(self, future: asyncio.Future):
         if not self._check_internet_access():
             future.set_result({})
             return
 
         tasks = []
-        self._downloaded_pages.clear()
 
-        for site_name, urls in self.target_urls.urls.items():
-            if len(urls) == 1 and urls[0][0] == '':
-                continue
+        async with aiohttp.ClientSession() as session:
+            for site_name, urls in self.target_urls.urls.items():
+                if len(urls) == 1 and urls[0][0] == '':
+                    continue
 
-            self._downloaded_pages[site_name] = []
-            for i in urls:
-                tasks.append(self.download_html(site_name, *i))
+                self._downloaded_pages[site_name] = []
+                for i in urls:
+                    tasks.append(asyncio.ensure_future(
+                        self.fetch(session, site_name, *i))
+                    )
 
-        if not tasks:
-            future.set_result({})
-            return
+            if not tasks:
+                future.set_result({})
+                return
 
-        self.semaphore = asyncio.Semaphore(self.limit)
-        asyncio.get_event_loop().create_task(self._task_wrapper(tasks, future))
+            try:
+                with async_timeout.timeout(self.conf_program['timeout_update'],
+                                           loop=session.loop):
+                    await asyncio.gather(*tasks)
+            except asyncio.TimeoutError:
+                self._logger.error(
+                    'TimeoutError, первышено время обновления. Получены данные'
+                    ' только с части сайтов'
+                )
+
+            future.set_result(self._downloaded_pages)
 
 
 if __name__ == '__main__':
     from configs import base_dir
 
-    def res(data):
-        print(data)
+    def print_res(data):
         print(data.result())
         loop.stop()
 
     loop = asyncio.get_event_loop()
     asyncio.set_event_loop(loop)
+
     future = asyncio.Future()
-    future.add_done_callback(res)
+    future.add_done_callback(print_res)
 
     urls = SerialsUrls(base_dir)
-    d = Downloader(urls)
-    d.run(future)
+    conf_program = ConfigsProgram(base_dir)
+    d = Downloader(urls, conf_program)
+    asyncio.ensure_future(d.run(future))
 
     loop.run_forever()

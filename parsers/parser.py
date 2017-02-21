@@ -29,4 +29,4 @@ class AsyncParserHTML(QtCore.QThread):
         serials_data = parse_serial_page(self.data)
         self.s_data_ready.emit(serials_data)
 
-        self.data.clear()  # fixme вроде как решает проблему с утечкой памяти
+        self.data.clear()

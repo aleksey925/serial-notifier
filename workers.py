@@ -33,7 +33,7 @@ class UpgradeTimer(QtCore.QTimer):
         self.urls = urls
         self.conf_program = conf_program
 
-        self.loader = Downloader(self.urls)
+        self.loader = Downloader(self.urls, self.conf_program)
 
         self.db_worker = db_worker
         self.db_worker.s_status_update.connect(self.upgrade_db_complete,
@@ -53,15 +53,18 @@ class UpgradeTimer(QtCore.QTimer):
         по таймеру). Принимает значения: timer или user
         """
         # Если обновление базы не производится прямо сейчас, то можно запустить
-        # процесс
+        # процесс обновления
         if self.flag_progress.empty():
-            self.urls.read()
             self.flag_progress.put(type_run)
-            f_download_complete = asyncio.Future()
-            f_download_complete.add_done_callback(self.download_complete)
             self.tray_icon.update_start()
 
-            self.loader.run(f_download_complete)
+            self.urls.read()
+            self.conf_program.read()
+
+            f_download_complete = asyncio.Future()
+            f_download_complete.add_done_callback(self.download_complete)
+
+            asyncio.ensure_future(self.loader.run(f_download_complete))
 
     def download_complete(self, downloaded_pages: asyncio.Future):
         """

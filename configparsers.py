@@ -42,5 +42,7 @@ class ConfigsProgram:
                 # Таймер в программе принимает в миллисекундах значение, по
                 # этому переводим минуты в милисекунды
                 self.conf[option] = self.config.getint('general', option) * 60000
+            elif option == 'timeout_update':
+                self.conf[option] = self.config.getint('general', option)
             else:
                 self.conf[option] = self.config.get('general', option)

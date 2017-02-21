@@ -448,15 +448,14 @@ class MainWindow(QtWidgets.QMainWindow):
         кнопки меню и уведомить пользователя о новых сериях если таковые
         появились
         """
-        # todo выводить сообщения об ошибке в 1 месте, а не тут и через логер
         if serials_with_updates and status == 'ok':
             self.s_send_db_task.emit(self.db_worker.get_serials)
             message = self.prepare_message(serials_with_updates)
             self.tray_icon.showMessage('В курсе новых серий', message)
-            self.notice.add_notification(message)
+            self.notice.add_notification(serials_with_updates)
 
-            if exists(split(self.conf_program.conf['file_notifications'])[0]):
-                with open(self.conf_program.conf['file_notifications'], 'a') as out:
+            if exists(split(self.conf_program.conf['file_notif'])[0]):
+                with open(self.conf_program.conf['file_notif'], 'a') as out:
                     out.write('{time} {message}\n'.format(
                         time=time.strftime('(%Y-%m-%d) (%H:%M:%S)'),
                         message=message + '\n\n')
@@ -475,16 +474,14 @@ class MainWindow(QtWidgets.QMainWindow):
     @staticmethod
     def prepare_message(data):
         result_message = ''
-        msg_pattern = ('<a style="color: white" href="{0}">{0}</a>: '
-                       'Сезон {1}, Серия {2}<br>')
         for site_name, serials in data.items():
-            result_message += '{}<br>'.format(site_name)
+            result_message += '{}\n'.format(site_name)
             for serial_name, i in serials.items():
-                result_message += msg_pattern.format(
+                result_message += '{}: Сезон {}, Серия {}\n'.format(
                     serial_name, i['Сезон'], ', '.join(map(str, i['Серия']))
                 )
-            result_message += '<br>'
-        return re.sub('(<br>)*$', '', result_message)
+            result_message += '\n'
+        return result_message.strip()
 
     def update_list_serial(self, all_serials):
         """
