@@ -29,13 +29,17 @@ def filintv(page):
         # не указаны вышедшие сезоны
         season = '1'
 
-    series = parser.cssselect('div.ssc table tr td strong:nth-child(1)')[0].text
+    series = parser.cssselect(
+        'div.ssc table tr td strong:nth-child(1)'
+    )[0].text.lower()
+
     if '(Оригинал)' in series:
         return
     elif 'серия' in series and 'сезон' in series:
         # Правильный номер серии и сезона у некоторых сериалов указывается
         # в скобках рядом с номер серии
-        series, season = re.findall('\((\d+) серия.* (\d+).*\)', series, re.I)[0]
+        series = series.replace('c', 'с')  # меняем латинскую букву на русскую
+        series, season = re.findall('(\d+) серия.*(\d+) сезон', series, re.I)[0]
     else:
         series = series.split()[0]
 
