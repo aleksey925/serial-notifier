@@ -66,11 +66,17 @@ class UpgradeTimer(QtCore.QTimer):
 
             asyncio.ensure_future(self.loader.run(f_download_complete))
 
-    def download_complete(self, downloaded_pages: asyncio.Future):
+    def download_complete(self, download_result: asyncio.Future):
         """
         Получает HTML старницы и запускает парсинг
+        :param download_result: объект future содержащий список со статусом и
+        скачанными данными. Статус может быть "normal" или "cancelled"
         """
-        self.s_send_data_parser.emit(downloaded_pages.result())
+        data = download_result.result()
+        if data[0] == 'cancelled':
+            self.upgrade_db_complete(*data)
+        else:
+            self.s_send_data_parser.emit(data[1])
 
     def parse_complete(self, serials_data: dict):
         """
@@ -88,7 +94,7 @@ class UpgradeTimer(QtCore.QTimer):
     def upgrade_db_complete(self, status: str, serials_with_updates: dict):
         """
         :param status Указывает успешно или нет завершилась операция обновления
-        базы данных. Может получить "ok" или  "error".
+        базы данных. Может получить "ok", "cancelled" или "error".
         :param serials_with_updates
         """
         type_run = self.flag_progress.get()

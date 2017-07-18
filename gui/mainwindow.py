@@ -30,6 +30,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         # Элементы меню
         self.a_open = None
         self.a_update = None
+        self.a_update_cancel = None
         self.a_exit = None
 
         self.build_menu()
@@ -42,6 +43,8 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         self.a_open = menu.addAction('Открыть', self.show_window)
         self.a_update = menu.addAction('Обновить')
         self.a_update.setDisabled(True)
+        self.a_update_cancel = menu.addAction('Отменить обновление')
+        self.a_update_cancel.setDisabled(True)
         self.a_exit = menu.addAction('Выйти', QCoreApplication.instance().exit)
 
         self.setContextMenu(menu)
@@ -76,10 +79,12 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
     def update_start(self):
         self.change_icon('update')
         self.a_update.setDisabled(True)
+        self.a_update_cancel.setDisabled(False)
 
     def update_done(self):
         self.change_icon('normal')
         self.a_update.setDisabled(False)
+        self.a_update_cancel.setDisabled(True)
 
 
 class SerialTree(QtWidgets.QWidget):
@@ -367,6 +372,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def init_widgets(self):
         self.tray_icon.a_update.triggered.connect(self.run_upgrade)
+        self.tray_icon.a_update_cancel.triggered.connect(self.cancel_upgrade)
 
         # Загружаем информацию о серилах в в БД
         self.s_send_db_task.emit(self.db_worker.get_serials)
@@ -395,13 +401,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def eventFilter(self, obj, event):
         """
-        Устанавливает и снимает захват клавиатуры
+        Устанавливает фокус на поле поиска сериала
         """
         if event.type() == QtCore.QEvent.WindowActivate:
-            self.search_field.grabKeyboard()
-        elif event.type() == QtCore.QEvent.WindowDeactivate:
-            self.search_field.releaseKeyboard()
-
+            self.search_field.setFocus()
         return False
 
     def set_position(self, width=430, height=500):
@@ -442,6 +445,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tray_icon.update_start()
         self.upgrade_timer.run('user')
 
+    def cancel_upgrade(self):
+        """
+        Отменяет процесс получения данных о новых сериях
+        """
+        self.upgrade_timer.loader.gather_tasks.cancel()
+
     def upgrade_complete(self, status, serials_with_updates, type_run):
         """
         Вызывается после завершения обновления БД, чтобы включить отключеные
@@ -465,6 +474,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tray_icon.showMessage(
                 'В курсе новых серий',
                 'Обновление базы завершено, новых серий не выходило')
+        elif status == 'cancelled':
+            self.tray_icon.showMessage('В курсе новых серий',
+                                       'Обновление отменено')
         elif status == 'error':
             self.tray_icon.showMessage('В курсе новых серий',
                                        'При обновлении базы возникла ошибка')

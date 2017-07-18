@@ -3,6 +3,7 @@
 """
 import asyncio
 import logging
+import concurrent.futures
 
 import requests
 import aiohttp
@@ -20,6 +21,7 @@ class Downloader:
         self.conf_program = conf_program.conf
         self._logger = logging.getLogger('main')
 
+        self.gather_tasks = None
         self._downloaded_pages = {}
 
     async def fetch(self, session, site_name, serial_name, url):
@@ -72,14 +74,21 @@ class Downloader:
             try:
                 with async_timeout.timeout(self.conf_program['timeout_update'],
                                            loop=session.loop):
-                    await asyncio.gather(*tasks)
+                    try:
+                        self.gather_tasks = asyncio.gather(*tasks)
+                        await self.gather_tasks
+                    except concurrent.futures.CancelledError:
+                        # todo нужно уведомление изменить
+                        self._downloaded_pages = {}
+                        future.set_result(['cancelled', {}])
+                        return
             except asyncio.TimeoutError:
                 self._logger.error(
                     'TimeoutError, первышено время обновления. Получены данные'
                     ' только с части сайтов'
                 )
 
-            future.set_result(self._downloaded_pages)
+            future.set_result(['normal', self._downloaded_pages])
 
 
 if __name__ == '__main__':
