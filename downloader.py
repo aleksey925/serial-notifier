@@ -78,7 +78,6 @@ class Downloader:
                         self.gather_tasks = asyncio.gather(*tasks)
                         await self.gather_tasks
                     except concurrent.futures.CancelledError:
-                        # todo нужно уведомление изменить
                         self._downloaded_pages = {}
                         future.set_result(['cancelled', {}])
                         return

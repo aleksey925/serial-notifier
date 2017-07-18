@@ -1,9 +1,9 @@
-import re
 import sys
 import time
+
 from os.path import join, exists, split
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets, Qt
 from PyQt5.QtCore import QCoreApplication, QModelIndex
 
 from gui.widgets import SearchLineEdit, SortFilterProxyModel, BoardNotification
@@ -21,6 +21,10 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         self.setToolTip('В курсе новых серий')
         self.activated.connect(self.click_trap)
 
+        self.count_unread_notif = 0
+        self.font_notif = QtGui.QFont(
+            join(base_dir, 'fonts/houschka-rounded-bold.otf')
+        )
         self.icons = {
             'normal': QtGui.QIcon(join(base_dir, 'icons/app-48x48.png')),
             'update': QtGui.QIcon(join(base_dir, 'icons/app-sync-48x48.png'))
@@ -42,7 +46,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
 
         self.a_open = menu.addAction('Открыть', self.show_window)
         self.a_update = menu.addAction('Обновить')
-        self.a_update.setDisabled(True)
+        self.a_update.setDisabled(False)
         self.a_update_cancel = menu.addAction('Отменить обновление')
         self.a_update_cancel.setDisabled(True)
         self.a_exit = menu.addAction('Выйти', QCoreApplication.instance().exit)
@@ -55,6 +59,48 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
             self.setToolTip('В курсе новых серий')
         else:
             self.setToolTip('Ищем новые серии...')
+
+    def update_notif_counter(self, event):
+        """
+        Обновляет счетчик обновлений, который показывает сколько новых
+        уведомлений есть
+        :param event: указывает, что нужно сделать: обновить счетчик или
+        убрать счетчик. Может иметь значения add или clear.
+        """
+        if event == 'clear':
+            self.setIcon(self.icons['normal'])
+            return
+
+        self.count_unread_notif += 1
+        count = str(self.count_unread_notif)
+
+        icon = self.icons['normal']
+        pixmap = icon.pixmap(icon.availableSizes()[0])
+
+        painter = QtGui.QPainter(pixmap)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        self.font_notif.setPointSizeF(16)
+        painter.setFont(self.font_notif)
+        painter.setPen(Qt.Qt.red)
+        painter.setBrush(Qt.Qt.red)
+
+        # Рисуем круг с радиусом 11 и размещаем в заданных кординатах
+        painter.drawEllipse(QtCore.QPoint(35, 12), 11, 11)
+
+        painter.setPen(Qt.Qt.white)
+
+        if len(count) == 1:
+            painter.drawText(QtCore.QPoint(30, 18), count)
+        elif len(count) == 2:
+            painter.drawText(QtCore.QPoint(25, 18), count)
+        else:
+            self.font_notif.setPointSizeF(12)
+            painter.setFont(self.font_notif)
+            painter.drawText(QtCore.QPoint(23, 16), count)
+
+        painter.end()
+
+        self.setIcon(QtGui.QIcon(pixmap))
 
     def click_trap(self, reason):
         """
@@ -401,10 +447,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def eventFilter(self, obj, event):
         """
-        Устанавливает фокус на поле поиска сериала
+        Отлавливает события главного окна
         """
         if event.type() == QtCore.QEvent.WindowActivate:
             self.search_field.setFocus()
+            self.tray_icon.update_notif_counter('clear')
         return False
 
     def set_position(self, width=430, height=500):
@@ -483,6 +530,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.tray_icon.update_done()
 
+        if serials_with_updates and not self.isActiveWindow():
+            self.tray_icon.update_notif_counter('add')
+
     @staticmethod
     def prepare_message(data):
         result_message = ''
@@ -503,5 +553,3 @@ class MainWindow(QtWidgets.QMainWindow):
         self.serial_tree.model.setHorizontalHeaderLabels(['Сериалы'])
         self.serial_tree.add_items(all_serials)
         self.serial_tree.view.sortByColumn(0, QtCore.Qt.AscendingOrder)
-
-        self.tray_icon.update_done()

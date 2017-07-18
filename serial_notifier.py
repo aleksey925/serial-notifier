@@ -12,7 +12,6 @@ from quamash import QEventLoop
 from PyQt5 import QtWidgets, QtGui
 
 
-# todo добавить кнопку прерывания обновления
 app = QtWidgets.QApplication(sys.argv)
 app.setWindowIcon(QtGui.QIcon(join(base_dir, 'icons/app-512x512.png')))
 
