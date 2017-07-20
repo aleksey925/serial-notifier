@@ -198,6 +198,29 @@ class DbManager(QtCore.QThread):
 
         self.db_session.add(current_serial)
 
+    def remove_serial(self, serial_name: str):
+        # todo сделать ещё один сигнал через который буду кидать инфу о том прошла операция успешно или нет
+        serial = self.db_session.query(Serial).filter(
+            Serial.name == serial_name
+        )
+        series = self.db_session.query(Series).filter(
+            Series.id_serial == serial.one().id
+        )
+
+        series.delete(synchronize_session=False)
+        serial.delete(synchronize_session=False)
+
+        try:
+            self.db_session.commit()
+        except Exception as err:
+            self.db_session.rollback()
+            self._logger.error(
+                'Не удалось удалить сериал "{}". {}'.format(
+                    serial_name, str(err)
+                )
+            )
+
+
     def _check_updates(self, serial_name: str, season: str, series: list):
         """
         Проверяет появились новые серии или нет. Если есть новые серии, то

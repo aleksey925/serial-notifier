@@ -153,7 +153,10 @@ class SerialTree(QtWidgets.QWidget):
         self.view = QtWidgets.QTreeView()
         self.model = QtGui.QStandardItemModel()
         self.filter_by_name = SortFilterProxyModel()
-        self.context_menu = QtWidgets.QMenu()
+        self.context_menu = {
+            'base': QtWidgets.QMenu(),
+            'serial': QtWidgets.QMenu()
+        }
 
         self.build_widgets()
         self.create_context_menu()
@@ -211,10 +214,45 @@ class SerialTree(QtWidgets.QWidget):
                     self.view.setRowHidden(i, parent_index, True)
 
     def create_context_menu(self):
-        self.context_menu.addAction('Смотрел',
-                                    lambda: self.change_status('True'))
-        self.context_menu.addAction('Не смотрел',
-                                    lambda: self.change_status('False'))
+        actions = {
+            'base': {
+                'Смотрел': lambda: self.change_status('True'),
+                'Не смотрел': lambda: self.change_status('False')
+            },
+            'serial': {
+                'Удалить': self.remove_serial
+            }
+        }
+
+        for name_menu, menu in self.context_menu.items():
+            acts = {}
+            acts.update(actions['base'])
+            acts.update(actions[name_menu])
+            for name_action, func in acts.items():
+                menu.addAction(name_action, func)
+
+    def remove_serial(self):
+        """
+        Удаляет данные о сериале из БД и из конфига со списоком
+        отслеживаемых сериалов
+        """
+        serial_name = self._selected_element[1].data()
+
+        reply = QtWidgets.QMessageBox.information(
+            self, 'Удаление', 'Удалить сериал "{}"'.format(serial_name),
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No
+        )
+
+        if reply == QtWidgets.QMessageBox.Yes:
+            self.main_window.s_send_db_task.emit(
+                lambda: self.main_window.db_worker.remove_serial(
+                    serial_name
+                )
+            )
+
+        self.model.removeRow(self._selected_element[1].row())
+        self.main_window.urls.remove(serial_name)
 
     def change_status(self, status):
         """
@@ -229,7 +267,9 @@ class SerialTree(QtWidgets.QWidget):
         elif self._selected_element[0] == 1:
             # Меняем статус сезона
             season_index = self._selected_element[1]
-            self.model.itemFromIndex(season_index).setIcon(self.looked_status[status])
+            self.model.itemFromIndex(season_index).setIcon(
+                self.looked_status[status]
+            )
 
             # Меняем статусы у всех серий сезона
             for i in self._iter_qstandarditem(season_index):
@@ -242,7 +282,9 @@ class SerialTree(QtWidgets.QWidget):
             # Меняю статус серии
             season_index = self._selected_element[1].parent()
             series_index = self._selected_element[1]
-            self.model.itemFromIndex(series_index).setIcon(self.looked_status[status])
+            self.model.itemFromIndex(series_index).setIcon(
+                self.looked_status[status]
+            )
 
             # Проверяю, что остальные серии имеют тот же статус
             series = {self.model.itemFromIndex(i).icon().cacheKey() for i in
@@ -344,7 +386,15 @@ class SerialTree(QtWidgets.QWidget):
         # ссылающийся на исходную модель
         proxy_index = self.view.model().mapToSource(indexes[0])
         self._selected_element = (level, proxy_index)
-        self.context_menu.exec_(self.view.viewport().mapToGlobal(position))
+
+        if level == 0:
+            self.context_menu['serial'].exec_(
+                self.view.viewport().mapToGlobal(position)
+            )
+        else:
+            self.context_menu['base'].exec_(
+                self.view.viewport().mapToGlobal(position)
+            )
 
     def add_items(self, elements: list):
         for i in elements:

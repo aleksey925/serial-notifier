@@ -1,3 +1,4 @@
+import re
 import configparser
 
 from os.path import join
@@ -21,6 +22,19 @@ class SerialsUrls:
             self.urls[section] = []
             for i in self.config[section]['urls'].split('\n'):
                 self.urls[section].append(i.split(';'))
+
+    def remove(self, serial_name):
+        for section_name, section in self.config.items():
+            for option, value in section.items():
+                self.config[section_name][option] = re.sub(
+                    '{};.*\n?'.format(serial_name), '', value
+                )
+        self.write()
+        self.read()
+
+    def write(self):
+        with open(join(self.path, 'sites.conf'), 'w') as out:
+            self.config.write(out)
 
 
 class ConfigsProgram:
