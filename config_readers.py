@@ -42,7 +42,6 @@ class ConfigReader(ABC):
                 f'Ошибка при парсинге {self.conf_name}\n'
                 f'{traceback.format_exc()}'
             ))
-            return
 
     def write(self):
         with open(self.path, 'w') as out:
@@ -55,8 +54,8 @@ class SerialsUrls(ConfigReader):
 
         self.default_settings = (
             '# Файл заглушка, замените все реальными данными\n'
-            '[filin.tv]\nurls = <Назв. сериала>;http://sitename.ru/serial\n\n'
-            '[filmix.me]\nurls = <Назв. сериала>;http://sitename.ru/serial\n'
+            '[filin.tv]\nurls = <Название сериала>;<url>\n\n'
+            '[filmix.me]\nurls = <Название сериала>;<url>\n'
         )
         self.init()
         self.read()
