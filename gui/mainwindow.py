@@ -9,7 +9,7 @@ from PyQt5.QtCore import QCoreApplication, QModelIndex
 from gui.widgets import SearchLineEdit, SortFilterProxyModel, BoardNotification
 from workers import UpgradeTimer
 from db.managers import DbManager
-from configparsers import SerialsUrls, ConfigsProgram
+from config_readers import SerialsUrls, ConfigsProgram
 from configs import base_dir
 
 
@@ -22,9 +22,13 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         self.activated.connect(self.click_trap)
 
         self.count_unread_notif = 0
-        self.font_notif = QtGui.QFont(
-            join(base_dir, 'fonts/houschka-rounded-bold.otf')
-        )
+        self.font_notif = QtGui.QFont('Arial')
+        self.font_notif.setBold(True)
+        if sys.platform == 'darwin':
+            self.font_notif.setPointSizeF(26)
+        else:
+            self.font_notif.setPointSizeF(19)
+
         self.icons = {
             'normal': QtGui.QIcon(join(base_dir, 'icons/app-48x48.png')),
             'update': QtGui.QIcon(join(base_dir, 'icons/app-sync-48x48.png'))
@@ -67,6 +71,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         :param event: указывает, что нужно сделать: обновить счетчик или
         убрать счетчик. Может иметь значения add или clear.
         """
+        # todo переписать посылку уведомлений. Сделать общий интрфейс через который будут посылаться уведомления и поддерживаемые серивисы подгружать динамически
         if event == 'clear':
             self.setIcon(self.icons['normal'])
             return
@@ -74,33 +79,39 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         self.count_unread_notif += 1
         count = str(self.count_unread_notif)
 
-        icon = self.icons['normal']
-        pixmap = icon.pixmap(icon.availableSizes()[0])
+        circle_radius = 35
+        circle = QtGui.QPixmap(circle_radius, circle_radius)
+        # Избавляет от шумов на изображении
+        circle.fill(QtGui.QColor(0, 0, 0, 0))
 
-        painter = QtGui.QPainter(pixmap)
-        painter.setRenderHint(QtGui.QPainter.Antialiasing)
-        self.font_notif.setPointSizeF(16)
-        painter.setFont(self.font_notif)
-        painter.setPen(Qt.Qt.red)
-        painter.setBrush(Qt.Qt.red)
+        painter_circle = QtGui.QPainter(circle)
+        painter_circle.setRenderHint(QtGui.QPainter.Antialiasing)
+        painter_circle.setFont(self.font_notif)
+        painter_circle.setPen(Qt.Qt.red)
+        painter_circle.setBrush(Qt.Qt.red)
+        painter_circle.drawEllipse(0, 0, circle_radius, circle_radius)
 
-        # Рисуем круг с радиусом 11 и размещаем в заданных кординатах
-        painter.drawEllipse(QtCore.QPoint(35, 12), 11, 11)
+        painter_circle.setPen(Qt.Qt.white)
+        text_option = QtGui.QTextOption()
+        text_option.setAlignment(QtCore.Qt.AlignCenter)
 
-        painter.setPen(Qt.Qt.white)
+        painter_circle.drawText(
+            QtCore.QRectF(circle.rect()),
+            count,
+            text_option)
+        painter_circle.end()
 
-        if len(count) == 1:
-            painter.drawText(QtCore.QPoint(30, 18), count)
-        elif len(count) == 2:
-            painter.drawText(QtCore.QPoint(25, 18), count)
-        else:
-            self.font_notif.setPointSizeF(12)
-            painter.setFont(self.font_notif)
-            painter.drawText(QtCore.QPoint(23, 16), count)
+        # Накладываем на икноку кружок с количеством уведомлений
+        app_icon = icon = self.icons['normal']
+        app_pixmap = app_icon.pixmap(app_icon.availableSizes()[0])
 
-        painter.end()
+        painter_app_icon = QtGui.QPainter(app_pixmap)
+        painter_app_icon.setRenderHint(QtGui.QPainter.Antialiasing)
+        painter_app_icon.drawPixmap(10, 1, circle)
 
-        self.setIcon(QtGui.QIcon(pixmap))
+        painter_app_icon.end()
+
+        self.setIcon(QtGui.QIcon(app_pixmap))
 
     def click_trap(self, reason):
         """
@@ -560,8 +571,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tray_icon.showMessage('В курсе новых серий', message)
             self.notice.add_notification(serials_with_updates)
 
-            if exists(split(self.conf_program.conf['file_notif'])[0]):
-                with open(self.conf_program.conf['file_notif'], 'a') as out:
+            if exists(split(self.conf_program.data['file_notif'])[0]):
+                with open(self.conf_program.data['file_notif'], 'a') as out:
                     out.write('{time} {message}\n'.format(
                         time=time.strftime('(%Y-%m-%d) (%H:%M:%S)'),
                         message=message + '\n\n')

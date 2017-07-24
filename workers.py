@@ -8,6 +8,7 @@ from queue import Queue
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt, pyqtSignal
 
+from config_readers import SerialsUrls, ConfigsProgram
 from parsers import AsyncParserHTML
 from downloader import Downloader
 
@@ -24,7 +25,8 @@ class UpgradeTimer(QtCore.QTimer):
     s_upgrade_complete = pyqtSignal(object, object, object,
                                     name='upgrade_complete')
 
-    def __init__(self, tray_icon, db_worker, urls, conf_program):
+    def __init__(self, tray_icon, db_worker, urls: SerialsUrls,
+                 conf_program: ConfigsProgram):
         super(UpgradeTimer, self).__init__()
 
         # Сигнализирует производится уже обработка данных или нет
@@ -44,7 +46,7 @@ class UpgradeTimer(QtCore.QTimer):
 
         # Запускаем таймер
         self.timeout.connect(lambda: self.run('timer'))
-        self.start(self.conf_program.conf['timeout_refresh'])
+        self.start(self.conf_program.data['timeout_refresh'])
 
     def run(self, type_run):
         """

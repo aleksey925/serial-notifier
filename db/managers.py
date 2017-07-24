@@ -1,4 +1,5 @@
 import logging
+import traceback
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
@@ -29,17 +30,17 @@ class DbManager(QtCore.QThread):
     def run(self):
         try:
             self.db_session = create_db_session()
-        except Exception as err:
+        except Exception:
             self._logger.critical(
-                'Невозможно подключиться к БД. {}'.format(str(err))
+                f'Невозможно подключиться к БД.\n{traceback.format_exc()}'
             )
             return
 
         try:
             self.target()
-        except Exception as err:
+        except Exception:
             self.db_session.rollback()
-            self._logger.critical(str(err))
+            self._logger.error(traceback.format_exc())
         finally:
             self.db_session.close()
 
@@ -110,10 +111,10 @@ class DbManager(QtCore.QThread):
 
         try:
             self.db_session.commit()
-        except Exception as err:
+        except Exception:
             self.db_session.rollback()
             self._logger.error(
-                'Не удалось изменит статус. {}'.format(str(err))
+                f'Не удалось изменит статус.\n{traceback.format_exc()}'
             )
 
     def upgrade_db(self, serials_data: dict):
@@ -144,11 +145,11 @@ class DbManager(QtCore.QThread):
         try:
             self.db_session.commit()
             self.s_status_update.emit('ok', new_data)
-        except Exception as err:
+        except Exception:
             self.db_session.rollback()
             self.s_status_update.emit('error', new_data)
             self._logger.error(
-                'Не удалось обновить данные в БД. {}'.format(str(err))
+                f'Не удалось обновить данные в БД.\n{traceback.format_exc()}'
             )
 
     def update_serial(self, serial_name, serial_data):
@@ -215,11 +216,9 @@ class DbManager(QtCore.QThread):
         except Exception as err:
             self.db_session.rollback()
             self._logger.error(
-                'Не удалось удалить сериал "{}". {}'.format(
-                    serial_name, str(err)
-                )
+                f'Не удалось удалить сериал "{serial_name}".\n'
+                f'{traceback.format_exc()}'
             )
-
 
     def _check_updates(self, serial_name: str, season: str, series: list):
         """

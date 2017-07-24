@@ -9,7 +9,7 @@ import requests
 import aiohttp
 import async_timeout
 
-from configparsers import SerialsUrls, ConfigsProgram
+from config_readers import SerialsUrls, ConfigsProgram
 
 
 class Downloader:
@@ -18,7 +18,7 @@ class Downloader:
     """
     def __init__(self, target_urls: SerialsUrls, conf_program: ConfigsProgram):
         self.target_urls = target_urls
-        self.conf_program = conf_program.conf
+        self.conf_program = conf_program.data
         self._logger = logging.getLogger('main')
 
         self.gather_tasks = None
@@ -57,7 +57,7 @@ class Downloader:
         tasks = []
 
         async with aiohttp.ClientSession() as session:
-            for site_name, urls in self.target_urls.urls.items():
+            for site_name, urls in self.target_urls.data.items():
                 if len(urls) == 1 and urls[0][0] == '':
                     continue
 
@@ -68,7 +68,7 @@ class Downloader:
                     )
 
             if not tasks:
-                future.set_result({})
+                future.set_result(['normal', self._downloaded_pages])
                 return
 
             try:
