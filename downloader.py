@@ -18,7 +18,7 @@ class Downloader:
     """
     def __init__(self, target_urls: SerialsUrls, conf_program: ConfigsProgram):
         self.target_urls = target_urls
-        self.conf_program = conf_program.data
+        self.conf_program = conf_program.data['general']
         self._logger = logging.getLogger('main')
 
         self.gather_tasks = None
@@ -72,8 +72,9 @@ class Downloader:
                 return
 
             try:
-                with async_timeout.timeout(self.conf_program['timeout_update'],
-                                           loop=session.loop):
+                with async_timeout.timeout(
+                        self.conf_program['timeout_update'],
+                        loop=session.loop):
                     try:
                         self.gather_tasks = asyncio.gather(*tasks)
                         await self.gather_tasks

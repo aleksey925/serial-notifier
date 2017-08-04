@@ -186,3 +186,4 @@ $RECYCLE.BIN/
 *.db
 log.txt
 sites.conf
+setting.conf

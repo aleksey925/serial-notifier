@@ -1,16 +1,28 @@
 import sys
-import time
+from os.path import join
 
-from os.path import join, exists, split
-
-from PyQt5 import QtCore, QtGui, QtWidgets, Qt
+import dependency_injector.containers as cnt
+import dependency_injector.providers as prv
+from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QCoreApplication, QModelIndex
 
-from gui.widgets import SearchLineEdit, SortFilterProxyModel, BoardNotification
+from notice_plugins import NoticePluginsContainer
 from workers import UpgradeTimer
 from db.managers import DbManager
-from config_readers import SerialsUrls, ConfigsProgram
+from config_readers import SerialsUrls
+from gui.widgets import SearchLineEdit, SortFilterProxyModel, BoardNotices
 from configs import base_dir
+
+
+class DIServises(cnt.DeclarativeContainer):
+    tray_icon = prv.Provider()
+    serial_tree = prv.Provider()
+    search_field = prv.Provider()
+    board_notices = prv.Provider()
+
+    db_manager = prv.Provider()
+
+    serials_urls = prv.Provider()
 
 
 class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
@@ -21,41 +33,24 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         self.setToolTip('В курсе новых серий')
         self.activated.connect(self.click_trap)
 
-        self.count_unread_notif = 0
-        self.font_notif = QtGui.QFont('Arial')
-        self.font_notif.setBold(True)
-        if sys.platform == 'darwin':
-            self.font_notif.setPointSizeF(26)
-        else:
-            self.font_notif.setPointSizeF(19)
-
         self.icons = {
+            'normal_clean': QtGui.QIcon(join(base_dir, 'icons/app-48x48.png')),
             'normal': QtGui.QIcon(join(base_dir, 'icons/app-48x48.png')),
             'update': QtGui.QIcon(join(base_dir, 'icons/app-sync-48x48.png'))
         }
         self.setIcon(self.icons['normal'])
 
-        # Элементы меню
-        self.a_open = None
-        self.a_update = None
-        self.a_update_cancel = None
-        self.a_exit = None
-
-        self.build_menu()
-
-        self.show()
-
-    def build_menu(self):
+        # Меню
         menu = QtWidgets.QMenu(self.parent())
-
         self.a_open = menu.addAction('Открыть', self.show_window)
         self.a_update = menu.addAction('Обновить')
         self.a_update.setDisabled(False)
         self.a_update_cancel = menu.addAction('Отменить обновление')
         self.a_update_cancel.setDisabled(True)
         self.a_exit = menu.addAction('Выйти', QCoreApplication.instance().exit)
-
         self.setContextMenu(menu)
+
+        self.show()
 
     def change_icon(self, state):
         self.setIcon(self.icons[state])
@@ -63,55 +58,6 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
             self.setToolTip('В курсе новых серий')
         else:
             self.setToolTip('Ищем новые серии...')
-
-    def update_notif_counter(self, event):
-        """
-        Обновляет счетчик обновлений, который показывает сколько новых
-        уведомлений есть
-        :param event: указывает, что нужно сделать: обновить счетчик или
-        убрать счетчик. Может иметь значения add или clear.
-        """
-        # todo переписать посылку уведомлений. Сделать общий интрфейс через который будут посылаться уведомления и поддерживаемые серивисы подгружать динамически
-        if event == 'clear':
-            self.setIcon(self.icons['normal'])
-            return
-
-        self.count_unread_notif += 1
-        count = str(self.count_unread_notif)
-
-        circle_radius = 35
-        circle = QtGui.QPixmap(circle_radius, circle_radius)
-        # Избавляет от шумов на изображении
-        circle.fill(QtGui.QColor(0, 0, 0, 0))
-
-        painter_circle = QtGui.QPainter(circle)
-        painter_circle.setRenderHint(QtGui.QPainter.Antialiasing)
-        painter_circle.setFont(self.font_notif)
-        painter_circle.setPen(Qt.Qt.red)
-        painter_circle.setBrush(Qt.Qt.red)
-        painter_circle.drawEllipse(0, 0, circle_radius, circle_radius)
-
-        painter_circle.setPen(Qt.Qt.white)
-        text_option = QtGui.QTextOption()
-        text_option.setAlignment(QtCore.Qt.AlignCenter)
-
-        painter_circle.drawText(
-            QtCore.QRectF(circle.rect()),
-            count,
-            text_option)
-        painter_circle.end()
-
-        # Накладываем на икноку кружок с количеством уведомлений
-        app_icon = icon = self.icons['normal']
-        app_pixmap = app_icon.pixmap(app_icon.availableSizes()[0])
-
-        painter_app_icon = QtGui.QPainter(app_pixmap)
-        painter_app_icon.setRenderHint(QtGui.QPainter.Antialiasing)
-        painter_app_icon.drawPixmap(10, 1, circle)
-
-        painter_app_icon.end()
-
-        self.setIcon(QtGui.QIcon(app_pixmap))
 
     def click_trap(self, reason):
         """
@@ -447,47 +393,57 @@ class MainWindow(QtWidgets.QMainWindow):
         super(MainWindow, self).__init__()
         self.installEventFilter(self)
 
-        # Инициализация основных виджетов окна
+        # Инициализация компановщиков окна
         self.main_layout = QtWidgets.QGridLayout()
         main_widget = QtWidgets.QWidget()
         main_widget.setLayout(self.main_layout)
         self.setCentralWidget(main_widget)
 
         # Виджеты
-        self.tray_icon = SystemTrayIcon(parent=self)
-        self.search_field = SearchLineEdit(self)
+        self.tray_icon: SystemTrayIcon = None
+        self.search_field: SearchLineEdit = None
         self.lab_search_field = QtWidgets.QLabel('Поиск: ')
-        self.serial_tree = SerialTree(parent=self)
-        self.notice = BoardNotification(self.search_field)
+        self.serial_tree: SerialTree = None
+        self.board_notices: BoardNotices = None
         self.filter_by_status = QtWidgets.QComboBox()
 
-        self.urls = SerialsUrls(base_dir)
-        self.conf_program = ConfigsProgram(base_dir)
+        self.urls: SerialsUrls = None
 
         # Различные асинхронные обработчики
-        self.db_worker = DbManager(self.s_send_db_task)
-        self.db_worker.s_serials_extracted.connect(self.update_list_serial,
-                                                   QtCore.Qt.QueuedConnection)
+        self.db_worker: DbManager = None
+        self.upgrade_timer: UpgradeTimer = None
 
-        self.upgrade_timer = UpgradeTimer(self.tray_icon, self.db_worker,
-                                          self.urls, self.conf_program)
-        self.upgrade_timer.s_upgrade_complete.connect(self.upgrade_complete)
-
-        self.init_widgets()
-
-        self.set_position()
-
-    def init_widgets(self):
+    def init(self):
+        """
+        Получение нужных виджетов через DI и инициализация
+        """
+        self.tray_icon = DIServises.tray_icon()
         self.tray_icon.a_update.triggered.connect(self.run_upgrade)
         self.tray_icon.a_update_cancel.triggered.connect(self.cancel_upgrade)
 
-        # Загружаем информацию о серилах в в БД
-        self.s_send_db_task.emit(self.db_worker.get_serials)
-
-        self.main_layout.addWidget(self.lab_search_field, 0, 0)
-
+        self.search_field = DIServises.search_field()
         self.search_field.textChanged.connect(self.change_filter_str)
         self.main_layout.addWidget(self.search_field, 0, 1)
+
+        self.serial_tree = DIServises.serial_tree()
+        self.serial_tree.setMinimumSize(270, 100)
+        self.main_layout.addWidget(self.serial_tree, 2, 0, 1, 2)
+
+        self.board_notices = DIServises.board_notices()
+        self.main_layout.addWidget(self.board_notices, 0, 2, 3, 2)
+
+        self.urls: SerialsUrls = DIServises.serials_urls()
+
+        self.db_worker = DIServises.db_manager()
+        self.db_worker.s_serials_extracted.connect(
+            self.update_list_serial, QtCore.Qt.QueuedConnection
+        )
+
+        self.upgrade_timer = UpgradeTimer()
+        self.upgrade_timer.s_upgrade_complete.connect(self.upgrade_complete)
+
+        # Загружаем информацию о серилах в в БД
+        self.s_send_db_task.emit(self.db_worker.get_serials)
 
         self.filter_by_status.addItems(
             ['Все', 'Смотрел', 'Не смотрел'])
@@ -500,11 +456,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.filter_by_status.currentIndexChanged.connect(
             self.serial_tree.hide_items)
         self.main_layout.addWidget(self.filter_by_status, 1, 0, 1, 2)
+        self.main_layout.addWidget(self.lab_search_field, 0, 0)
 
-        self.serial_tree.setMinimumSize(270, 100)
-        self.main_layout.addWidget(self.serial_tree, 2, 0, 1, 2)
+        self.set_position()
 
-        self.main_layout.addWidget(self.notice, 0, 2, 3, 2)
+    def set_position(self, width=430, height=500):
+        self.setGeometry(0, 0, width, height)
+        screen = QtWidgets.QDesktopWidget().availableGeometry()
+        self.move(screen.width() - width, 0)
 
     def eventFilter(self, obj, event):
         """
@@ -512,13 +471,8 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         if event.type() == QtCore.QEvent.WindowActivate:
             self.search_field.setFocus()
-            self.tray_icon.update_notif_counter('clear')
+            NoticePluginsContainer.update_all_counters('clear')
         return False
-
-    def set_position(self, width=430, height=500):
-        self.setGeometry(0, 0, width, height)
-        screen = QtWidgets.QDesktopWidget().availableGeometry()
-        self.move(screen.width() - width, 0)
 
     def fix_filter_conflict(self):
         """
@@ -563,21 +517,15 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Вызывается после завершения обновления БД, чтобы включить отключеные
         кнопки меню и уведомить пользователя о новых сериях если таковые
-        появились
+        имеются
         """
+        self.tray_icon.update_done()
+
         if serials_with_updates and status == 'ok':
             self.s_send_db_task.emit(self.db_worker.get_serials)
-            message = self.prepare_message(serials_with_updates)
-            self.tray_icon.showMessage('В курсе новых серий', message)
-            self.notice.add_notification(serials_with_updates)
-
-            if exists(split(self.conf_program.data['file_notif'])[0]):
-                with open(self.conf_program.data['file_notif'], 'a') as out:
-                    out.write('{time} {message}\n'.format(
-                        time=time.strftime('(%Y-%m-%d) (%H:%M:%S)'),
-                        message=message + '\n\n')
-                    )
-
+            NoticePluginsContainer.send_notice_everyone(
+                serials_with_updates, 'add'
+            )
         elif status == 'ok' and type_run == 'user':
             self.tray_icon.showMessage(
                 'В курсе новых серий',
@@ -588,23 +536,6 @@ class MainWindow(QtWidgets.QMainWindow):
         elif status == 'error':
             self.tray_icon.showMessage('В курсе новых серий',
                                        'При обновлении базы возникла ошибка')
-
-        self.tray_icon.update_done()
-
-        if serials_with_updates and not self.isActiveWindow():
-            self.tray_icon.update_notif_counter('add')
-
-    @staticmethod
-    def prepare_message(data):
-        result_message = ''
-        for site_name, serials in data.items():
-            result_message += '{}\n'.format(site_name)
-            for serial_name, i in serials.items():
-                result_message += '{}: Сезон {}, Серия {}\n'.format(
-                    serial_name, i['Сезон'], ', '.join(map(str, i['Серия']))
-                )
-            result_message += '\n'
-        return result_message.strip()
 
     def update_list_serial(self, all_serials):
         """

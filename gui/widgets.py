@@ -99,12 +99,12 @@ class Notification(QtWidgets.QLabel):
         super(Notification, self).resizeEvent(event)
 
 
-class BoardNotification(QtWidgets.QWidget):
+class BoardNotices(QtWidgets.QWidget):
     """
     Доска на которой отображаются уведомления о выходе новых серий
     """
     def __init__(self, search_field):
-        super(BoardNotification, self).__init__()
+        super(BoardNotices, self).__init__()
         self.search_field = search_field
 
         self.all_notification = []

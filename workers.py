@@ -3,6 +3,9 @@
 """
 import asyncio
 
+import dependency_injector.containers as cnt
+import dependency_injector.providers as prv
+
 from queue import Queue
 
 from PyQt5 import QtCore
@@ -11,6 +14,15 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from config_readers import SerialsUrls, ConfigsProgram
 from parsers import AsyncParserHTML
 from downloader import Downloader
+
+
+class DIServises(cnt.DeclarativeContainer):
+    tray_icon = prv.Provider()
+
+    db_manager = prv.Provider()
+
+    conf_program = prv.Provider()
+    serials_urls = prv.Provider()
 
 
 class UpgradeTimer(QtCore.QTimer):
@@ -25,19 +37,18 @@ class UpgradeTimer(QtCore.QTimer):
     s_upgrade_complete = pyqtSignal(object, object, object,
                                     name='upgrade_complete')
 
-    def __init__(self, tray_icon, db_worker, urls: SerialsUrls,
-                 conf_program: ConfigsProgram):
+    def __init__(self):
         super(UpgradeTimer, self).__init__()
 
         # Сигнализирует производится уже обработка данных или нет
         self.flag_progress = Queue(maxsize=1)
-        self.tray_icon = tray_icon
-        self.urls = urls
-        self.conf_program = conf_program
+        self.tray_icon = DIServises.tray_icon()
+        self.urls: SerialsUrls = DIServises.serials_urls()
+        self.conf_program: ConfigsProgram = DIServises.conf_program()
 
         self.loader = Downloader(self.urls, self.conf_program)
 
-        self.db_worker = db_worker
+        self.db_worker = DIServises.db_manager()
         self.db_worker.s_status_update.connect(self.upgrade_db_complete,
                                                Qt.QueuedConnection)
 
@@ -46,7 +57,7 @@ class UpgradeTimer(QtCore.QTimer):
 
         # Запускаем таймер
         self.timeout.connect(lambda: self.run('timer'))
-        self.start(self.conf_program.data['timeout_refresh'])
+        self.start(self.conf_program.data['general']['refresh_interval'])
 
     def run(self, type_run):
         """

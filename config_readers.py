@@ -2,14 +2,13 @@ import re
 import logging
 import traceback
 import configparser
-
 from abc import ABC, abstractmethod
 from os.path import join, exists
 
 
-class ConfigReader(ABC):
+class BaseConfigReader(ABC):
     """
-    Базовый класс для всех парсеров
+    Базовый класс для всех парсеров конфигурационных файлов
     """
     def __init__(self, base_dir, conf_name):
         self._logger = logging.getLogger('main')
@@ -20,7 +19,7 @@ class ConfigReader(ABC):
         self.base_dir = base_dir
         self.conf_name = conf_name
         self.path = join(base_dir, conf_name)
-        self.default_settings = ''
+        self.default_settings = {}
 
     def init(self):
         """
@@ -28,10 +27,8 @@ class ConfigReader(ABC):
         настройками по умолчанию
         """
         if not exists(self.path):
-            with open(self.path, 'w') as out:
-                out.write(self.default_settings)
+            self.write(self.default_settings)
 
-    @abstractmethod
     def read(self):
         self.data.clear()
 
@@ -42,30 +39,45 @@ class ConfigReader(ABC):
                 f'Ошибка при парсинге {self.conf_name}\n'
                 f'{traceback.format_exc()}'
             ))
+            return 'error'
+        else:
+            for section_name in self._config.sections():
+                self.data[section_name] = {}
+                for option in self._config[section_name].items():
+                    self.data[section_name][option[0]] = option[1]
 
-    def write(self):
+    def write(self, setting: dict=None):
+        if setting:
+            self._config.update(setting)
+            self.data.update(setting)
+
         with open(self.path, 'w') as out:
             self._config.write(out)
 
 
-class SerialsUrls(ConfigReader):
+class SerialsUrls(BaseConfigReader):
     def __init__(self, base_dir, conf_name='sites.conf'):
         super().__init__(base_dir, conf_name)
 
-        self.default_settings = (
-            '# Файл заглушка, замените все реальными данными\n'
-            '[filin.tv]\nurls = <Название сериала>;<url>\n\n'
-            '[filmix.me]\nurls = <Название сериала>;<url>\n'
-        )
+        self.default_settings = {
+            'filin.tv': {'urls': '<Название сериала>;<url>'},
+            'filmix.me': {'urls': '<Название сериала>;<url>'}
+        }
         self.init()
         self.read()
 
     def read(self):
-        super().read()
-        for section in self._config.sections():
-            self.data[section] = []
-            for i in self._config[section]['urls'].split('\n'):
-                self.data[section].append(i.split(';'))
+        error = super().read()
+        if error:
+            return
+
+        data = {}
+        for section, options in self.data.items():
+            data[section] = []
+            for value in options['urls'].split('\n'):
+                data[section].append(value.split(';'))
+
+        self.data = data
 
     def remove(self, serial_name):
         """
@@ -81,34 +93,40 @@ class SerialsUrls(ConfigReader):
         self.read()
 
 
-class ConfigsProgram(ConfigReader):
+class ConfigsProgram(BaseConfigReader):
     def __init__(self, base_dir, conf_name='setting.conf'):
         super().__init__(base_dir, conf_name)
 
-        self.default_settings = (
-            '[general]\n'
-            'file_notif ='
-            'timeout_refresh = 10'
-            'timeout_update = 100'
-        )
+        self.default_settings = {
+            'general': {
+                'refresh_interval': '10',
+                'timeout_update': '100'
+            }
+        }
+        self.converter = {
+            'general': {
+                'refresh_interval': lambda i: int(i) * 60000,
+                'timeout_update': lambda i: int(i)
+            }
+        }
         self.init()
         self.read()
 
     def read(self):
-        super().read()
+        error = super().read()
+        if error:
+            return
 
-        for option in self._config['general']:
-            if option == 'timeout_refresh':
-                # Таймер в программе принимает в миллисекундах значение, по
-                # этому переводим минуты в милисекунды
-                self.data[option] = self._config.getint('general', option) * 60000
-            elif option == 'timeout_update':
-                self.data[option] = self._config.getint('general', option)
-            else:
-                self.data[option] = self._config.get('general', option)
+        for section, options in self.converter.items():
+            for option, func in options.items():
+                self.data[section][option] = func(self.data[section][option])
+
 
 if __name__ == '__main__':
     from configs import base_dir
 
-    s = SerialsUrls(base_dir, 'sites.conf')
-    print(s.data)
+    c = ConfigsProgram(base_dir)
+    print(c.data)
+
+    c1 = SerialsUrls(base_dir)
+    print(c1.data)
