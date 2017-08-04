@@ -17,8 +17,6 @@ from downloader import Downloader
 
 
 class DIServises(cnt.DeclarativeContainer):
-    tray_icon = prv.Provider()
-
     db_manager = prv.Provider()
 
     conf_program = prv.Provider()
@@ -42,7 +40,6 @@ class UpgradeTimer(QtCore.QTimer):
 
         # Сигнализирует производится уже обработка данных или нет
         self.flag_progress = Queue(maxsize=1)
-        self.tray_icon = DIServises.tray_icon()
         self.urls: SerialsUrls = DIServises.serials_urls()
         self.conf_program: ConfigsProgram = DIServises.conf_program()
 
@@ -69,7 +66,6 @@ class UpgradeTimer(QtCore.QTimer):
         # процесс обновления
         if self.flag_progress.empty():
             self.flag_progress.put(type_run)
-            self.tray_icon.update_start()
 
             self.urls.read()
             self.conf_program.read()

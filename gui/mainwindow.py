@@ -6,7 +6,7 @@ import dependency_injector.providers as prv
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QCoreApplication, QModelIndex
 
-from notice_plugins import NoticePluginsContainer
+from notice_plugins import NoticePluginsContainer, UpdateCounterAction
 from workers import UpgradeTimer
 from db.managers import DbManager
 from config_readers import SerialsUrls
@@ -34,7 +34,6 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         self.activated.connect(self.click_trap)
 
         self.icons = {
-            'normal_clean': QtGui.QIcon(join(base_dir, 'icons/app-48x48.png')),
             'normal': QtGui.QIcon(join(base_dir, 'icons/app-48x48.png')),
             'update': QtGui.QIcon(join(base_dir, 'icons/app-sync-48x48.png'))
         }
@@ -391,6 +390,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
         super(MainWindow, self).__init__()
+        self.setWindowTitle('В курсе новых серий')
         self.installEventFilter(self)
 
         # Инициализация компановщиков окна
@@ -471,7 +471,13 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         if event.type() == QtCore.QEvent.WindowActivate:
             self.search_field.setFocus()
-            NoticePluginsContainer.update_all_counters('clear')
+
+            # Проверяем идет обновление или нет
+            if self.upgrade_timer.flag_progress.empty():
+                NoticePluginsContainer.update_all_counters(
+                    UpdateCounterAction.CLEAR
+                )
+
         return False
 
     def fix_filter_conflict(self):

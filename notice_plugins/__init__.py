@@ -28,7 +28,7 @@ class NoticePluginMount(type):
         else:
             check = NoticePluginMount.check_requirements(cls)
             if check:
-                NoticePluginMount.registration_plagin(cls)
+                NoticePluginMount.registration_plugin(cls)
 
     def check_requirements(cls):
         missing = []
@@ -44,7 +44,7 @@ class NoticePluginMount(type):
 
         return not bool(missing)
 
-    def registration_plagin(cls):
+    def registration_plugin(cls):
         config_program = DIServises.conf_program()
         if not config_program.data.get(cls.name, None):
             default_setting = {}
@@ -84,6 +84,11 @@ class NoticePluginsContainer(metaclass=NoticePluginMount):
             __import__(i, locals(), globals())
 
 
+class UpdateCounterAction:
+    ADD = 'add'
+    CLEAR = 'clear'
+
+
 class BaseNoticePlugin:
     default_setting = {
         'enable': 'yes'
@@ -92,7 +97,7 @@ class BaseNoticePlugin:
     def __init__(self):
         self.conf_program: ConfigsProgram = DIServises.conf_program()
 
-    def send_notice(self, data, counter_action=''):
+    def send_notice(self, data, counter_action: UpdateCounterAction=None):
         """
         :param data: данные, которые нужно отобразить в уведомлении
         :param counter_action: указывает, что нужно сделать: обновить счетчик
@@ -100,12 +105,12 @@ class BaseNoticePlugin:
         """
         raise NotImplementedError
 
-    def update_counter(self, counter_action='add'):
+    def update_counter(self, counter_action=UpdateCounterAction.ADD):
         """
         Обновляет счетчик обновлений, который показывает сколько новых
         уведомлений есть
         :param counter_action: указывает, что нужно сделать: обновить счетчик
-        или убрать счетчик. Может иметь значения add или clear.
+        или убрать счетчик.
         """
         raise NotImplementedError
 

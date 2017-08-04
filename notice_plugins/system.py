@@ -3,7 +3,9 @@ import time
 
 from PyQt5 import QtWidgets, QtGui, QtCore
 
-from . import NoticePluginsContainer, DIServises, BaseNoticePlugin
+from gui.mainwindow import SystemTrayIcon, MainWindow
+from . import NoticePluginsContainer, DIServises, BaseNoticePlugin, \
+    UpdateCounterAction
 
 
 class SystemNotice(NoticePluginsContainer, BaseNoticePlugin):
@@ -28,8 +30,10 @@ class SystemNotice(NoticePluginsContainer, BaseNoticePlugin):
         self.font_task_bar: QtGui.QFont = None
 
         self.app: QtWidgets.QApplication = DIServises.app()
-        self.main_window: QtWidgets.QApplication = DIServises.main_window()
-        self.tray_icon: QtWidgets.QSystemTrayIcon = DIServises.tray_icon()
+        self.main_window: MainWindow = DIServises.main_window()
+        self.tray_icon: SystemTrayIcon = DIServises.tray_icon()
+
+        self.clean_icon = self.tray_icon.icons['normal']
 
         for target, fonts in font_size.items():
             size = fonts.get(sys.platform, None)
@@ -41,7 +45,7 @@ class SystemNotice(NoticePluginsContainer, BaseNoticePlugin):
             font.setPointSizeF(size)
             setattr(self, f'font_{target}', font)
 
-    def send_notice(self, data, counter_action=''):
+    def send_notice(self, data, counter_action=None):
         self.tray_icon.showMessage(
             'В курсе новых серий', self.build_notice(data)
         )
@@ -49,11 +53,12 @@ class SystemNotice(NoticePluginsContainer, BaseNoticePlugin):
         if counter_action and not self.main_window.isActiveWindow():
             self.update_counter(counter_action)
 
-    def update_counter(self, counter_action='add'):
-        if counter_action == 'clear':
+    def update_counter(self, counter_action=UpdateCounterAction.ADD):
+        if counter_action == UpdateCounterAction.CLEAR:
             self.count = 0
             self.app.setWindowIcon(self.app.icon)
-            self.tray_icon.setIcon(self.tray_icon.icons['normal_clean'])
+            self.tray_icon.icons['normal'] = self.clean_icon
+            self.tray_icon.setIcon(self.tray_icon.icons['normal'])
             return
 
         self.count += 1
@@ -130,7 +135,7 @@ class NoticeFile(NoticePluginsContainer, BaseNoticePlugin):
     def __init__(self):
         super().__init__()
 
-    def send_notice(self, data, counter_action=''):
+    def send_notice(self, data, counter_action=None):
         with open(self.conf_program.data['general']['path'], 'a') as out:
             out.write(
                 f'{time.strftime("(%Y-%m-%d) (%H:%M:%S)")} '
@@ -148,5 +153,5 @@ class BoardNotices(NoticePluginsContainer, BaseNoticePlugin):
 
         self.board_notices = DIServises.board_notices()
 
-    def send_notice(self, data, counter_action=''):
+    def send_notice(self, data, counter_action=None):
         self.board_notices.add_notification(data)

@@ -51,7 +51,7 @@ class Downloader:
 
     async def run(self, future: asyncio.Future):
         if not self._check_internet_access():
-            future.set_result({})
+            future.set_result(['cancelled', {}])
             return
 
         tasks = []

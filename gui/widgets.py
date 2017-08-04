@@ -64,6 +64,7 @@ class Notification(QtWidgets.QLabel):
 
         self.setText('<br>{}<br>'.format(massage))
 
+        # fixme когда уведомлений много крестик съезжает
         self.button = QtWidgets.QToolButton(self)
         self.button.setIcon(self.icon_close)
         self.button.setStyleSheet('border: 0px; padding: 0px;')
