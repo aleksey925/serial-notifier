@@ -7,7 +7,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QCoreApplication, QModelIndex
 
 from notice_plugins import NoticePluginsContainer, UpdateCounterAction
-from workers import UpgradeTimer
+from schedulers import UpgradesScheduler
 from db.managers import DbManager
 from config_readers import SerialsUrls
 from gui.widgets import SearchLineEdit, SortFilterProxyModel, BoardNotices
@@ -411,7 +411,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Различные асинхронные обработчики
         self.db_worker: DbManager = None
-        self.upgrade_timer: UpgradeTimer = None
+        self.upgrades_scheduler: UpgradesScheduler = None
 
     def init(self):
         """
@@ -439,8 +439,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.update_list_serial, QtCore.Qt.QueuedConnection
         )
 
-        self.upgrade_timer = UpgradeTimer()
-        self.upgrade_timer.s_upgrade_complete.connect(self.upgrade_complete)
+        self.upgrades_scheduler = UpgradesScheduler()
+        self.upgrades_scheduler.s_upgrade_complete.connect(self.upgrade_complete)
 
         # Загружаем информацию о серилах в в БД
         self.s_send_db_task.emit(self.db_worker.get_serials)
@@ -473,7 +473,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.search_field.setFocus()
 
             # Проверяем идет обновление или нет
-            if self.upgrade_timer.flag_progress.empty():
+            if self.upgrades_scheduler.flag_progress.empty():
                 NoticePluginsContainer.update_all_counters(
                     UpdateCounterAction.CLEAR
                 )
@@ -511,13 +511,13 @@ class MainWindow(QtWidgets.QMainWindow):
         Запускает процесс получения и парсинга новых данных с сайтов
         """
         self.tray_icon.update_start()
-        self.upgrade_timer.run('user')
+        self.upgrades_scheduler.run('user')
 
     def cancel_upgrade(self):
         """
         Отменяет процесс получения данных о новых сериях
         """
-        self.upgrade_timer.loader.gather_tasks.cancel()
+        self.upgrades_scheduler.loader.gather_tasks.cancel()
 
     def upgrade_complete(self, status, serials_with_updates, type_run):
         """

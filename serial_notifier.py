@@ -9,7 +9,7 @@ from quamash import QEventLoop
 from PyQt5 import QtWidgets, QtGui
 
 import notice_plugins
-import workers
+import schedulers
 from db.managers import DbManager
 from gui import mainwindow
 from gui.widgets import SearchLineEdit, BoardNotices
@@ -35,7 +35,7 @@ class DIServises(cnt.DeclarativeContainer):
 
 # Внедрение зависимостей
 mainwindow.DIServises.override(DIServises)
-workers.DIServises.override(DIServises)
+schedulers.DIServises.override(DIServises)
 notice_plugins.DIServises.override(DIServises)
 
 app: QtWidgets.QApplication = DIServises.app()

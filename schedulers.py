@@ -1,6 +1,3 @@
-"""
-Моудль с асинхронными обработчиками данных
-"""
 import asyncio
 
 import dependency_injector.containers as cnt
@@ -23,10 +20,9 @@ class DIServises(cnt.DeclarativeContainer):
     serials_urls = prv.Provider()
 
 
-class UpgradeTimer(QtCore.QTimer):
+class UpgradesScheduler(QtCore.QTimer):
     """
-    Планировщик обновления данных в бд. Запускает через заданный промежуток
-    времени обновление данных. Поддерживает ручной вызов обновления.
+    Планировщик отвечающий за обновление информации о новых сериях
     """
 
     # Отправляет данные для парсинга
@@ -36,7 +32,7 @@ class UpgradeTimer(QtCore.QTimer):
                                     name='upgrade_complete')
 
     def __init__(self):
-        super(UpgradeTimer, self).__init__()
+        super().__init__()
 
         # Сигнализирует производится уже обработка данных или нет
         self.flag_progress = Queue(maxsize=1)
