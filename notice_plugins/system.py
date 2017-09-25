@@ -54,7 +54,7 @@ class SystemNotice(NoticePluginsContainer, BaseNoticePlugin):
             self.update_counter(counter_action)
 
     def update_counter(self, counter_action=UpdateCounterAction.ADD):
-        if counter_action == UpdateCounterAction.CLEAR:
+        if counter_action is UpdateCounterAction.CLEAR:
             self.count = 0
             self.app.setWindowIcon(self.app.icon)
             self.tray_icon.icons['normal'] = self.clean_icon

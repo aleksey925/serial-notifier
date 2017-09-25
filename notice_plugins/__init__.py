@@ -1,4 +1,5 @@
 import glob
+import enum
 import logging
 from os.path import join, dirname, basename, isfile
 
@@ -84,7 +85,7 @@ class NoticePluginsContainer(metaclass=NoticePluginMount):
             __import__(i, locals(), globals())
 
 
-class UpdateCounterAction:
+class UpdateCounterAction(enum.Enum):
     ADD = 'add'
     CLEAR = 'clear'
 
