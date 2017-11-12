@@ -31,13 +31,15 @@ class Downloader:
                 self._downloaded_pages[site_name].append([serial_name, page])
         except ValueError:
             self._logger.error(
-                'URL "{}" имеет неправильный формат'.format(url)
+                'URL "{url}" имеет неправильный формат'
             )
         except aiohttp.errors.ClientConnectionError:
             self._logger.error(
-                'Ошибка подключени к "{}". Возможно отсутствует '
-                'подключение к интернету.'.format(url)
+                f'Ошибка подключени к "{url}". Возможно отсутствует '
+                f'подключение к интернету.'
             )
+        except Exception as e:
+            self._logger.error(f'{e.__class__.__name__} {url}')
 
     def _check_internet_access(self):
         try:
