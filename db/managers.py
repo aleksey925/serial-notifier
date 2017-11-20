@@ -5,6 +5,7 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
 from sqlalchemy import and_
 
+from update_status import UpgradeStatus
 from .models import Serial, Series
 from db import create_db_session
 
@@ -144,10 +145,10 @@ class DbManager(QtCore.QThread):
                     new_data.setdefault(site_name, {})[serial_name] = data
         try:
             self.db_session.commit()
-            self.s_status_update.emit('ok', new_data)
+            self.s_status_update.emit(UpgradeStatus.OK, new_data)
         except Exception:
             self.db_session.rollback()
-            self.s_status_update.emit('error', new_data)
+            self.s_status_update.emit(UpgradeStatus.ERROR, new_data)
             self._logger.error(
                 f'Не удалось обновить данные в БД.\n{traceback.format_exc()}'
             )

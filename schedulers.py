@@ -7,6 +7,7 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import Qt, pyqtSignal
 
 from config_readers import SerialsUrls, ConfigsProgram
+from update_status import UpgradeStatus
 from downloaders import ThreadDownloader
 from parsers import AsyncParserHTML
 
@@ -39,9 +40,10 @@ class UpgradesScheduler(QtCore.QTimer):
 
         self.loader = ThreadDownloader(self.urls, self.conf_program)
 
-        self.db_worker = DIServises.db_manager()
-        self.db_worker.s_status_update.connect(self.upgrade_db_complete,
-                                               Qt.QueuedConnection)
+        self.db_manager = DIServises.db_manager()
+        self.db_manager.s_status_update.connect(
+            self.upgrade_db_complete, Qt.QueuedConnection
+        )
 
         self.parser = AsyncParserHTML(self.s_send_data_parser)
         self.parser.s_data_ready.connect(self.parse_complete)
@@ -71,13 +73,14 @@ class UpgradesScheduler(QtCore.QTimer):
 
     def download_complete(self, download_result: asyncio.Future):
         """
-        Получает HTML старницы и запускает парсинг
+        Вызывается после того как загрузка была завершена и инициирует парсинг
+        html страниц
         :param download_result: объект future содержащий список со статусом и
-        скачанными данными. Статус может быть "normal" или "cancelled"
+        скачанными данными.
         """
         data = download_result.result()
-        if data[0] == 'cancelled':
-            self.upgrade_db_complete(*data)
+        if data[0] == UpgradeStatus.CANCELLED:
+            self.upgrade_db_complete(data[0], {})
         else:
             self.s_send_data_parser.emit(data[1])
 
@@ -90,14 +93,15 @@ class UpgradesScheduler(QtCore.QTimer):
         Пример:
         {'filin.tv': {'Теория Большого взрыва': {'Серия': [17], 'Сезон': 1},}
         """
-        self.db_worker.s_send_db_task.emit(
-            lambda: self.db_worker.upgrade_db(serials_data)
+        self.db_manager.s_send_db_task.emit(
+            lambda: self.db_manager.upgrade_db(serials_data)
         )
 
-    def upgrade_db_complete(self, status: str, serials_with_updates: dict):
+    def upgrade_db_complete(self, status: UpgradeStatus,
+                            serials_with_updates: dict):
         """
         :param status Указывает успешно или нет завершилась операция обновления
-        базы данных. Может получить "ok", "cancelled" или "error".
+        базы данных.
         :param serials_with_updates
         """
         type_run = self.flag_progress.get()

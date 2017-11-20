@@ -12,6 +12,7 @@ from db.managers import DbManager
 from config_readers import SerialsUrls
 from gui.widgets import SearchLineEdit, SortFilterProxyModel, BoardNotices
 from configs import base_dir
+from update_status import UpgradeStatus
 
 
 class DIServises(cnt.DeclarativeContainer):
@@ -202,7 +203,7 @@ class SerialTree(QtWidgets.QWidget):
 
         if reply == QtWidgets.QMessageBox.Yes:
             self.main_window.s_send_db_task.emit(
-                lambda: self.main_window.db_worker.remove_serial(
+                lambda: self.main_window.db_manager.remove_serial(
                     serial_name
                 )
             )
@@ -262,7 +263,7 @@ class SerialTree(QtWidgets.QWidget):
             updated_inf['series'] = series_index.data().split('Серия ')[1]
 
         self.main_window.s_send_db_task.emit(
-            lambda: self.main_window.db_worker.change_status(
+            lambda: self.main_window.db_manager.change_status(
                 updated_inf, status, self._selected_element[0]
             )
         )
@@ -410,7 +411,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.urls: SerialsUrls = None
 
         # Различные асинхронные обработчики
-        self.db_worker: DbManager = None
+        self.db_manager: DbManager = None
         self.upgrades_scheduler: UpgradesScheduler = None
 
     def init(self):
@@ -434,16 +435,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.urls: SerialsUrls = DIServises.serials_urls()
 
-        self.db_worker = DIServises.db_manager()
-        self.db_worker.s_serials_extracted.connect(
+        self.db_manager = DIServises.db_manager()
+        self.db_manager.s_serials_extracted.connect(
             self.update_list_serial, QtCore.Qt.QueuedConnection
         )
 
         self.upgrades_scheduler = UpgradesScheduler()
-        self.upgrades_scheduler.s_upgrade_complete.connect(self.upgrade_complete)
+        self.upgrades_scheduler.s_upgrade_complete.connect(
+            self.upgrade_complete
+        )
 
         # Загружаем информацию о серилах в в БД
-        self.s_send_db_task.emit(self.db_worker.get_serials)
+        self.s_send_db_task.emit(self.db_manager.get_serials)
 
         self.filter_by_status.addItems(
             ['Все', 'Смотрел', 'Не смотрел'])
@@ -519,7 +522,8 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         self.upgrades_scheduler.loader.cancel_download()
 
-    def upgrade_complete(self, status, serials_with_updates, type_run):
+    def upgrade_complete(self, status: UpgradeStatus,
+                         serials_with_updates: dict, type_run: str):
         """
         Вызывается после завершения обновления БД, чтобы включить отключеные
         кнопки меню и уведомить пользователя о новых сериях если таковые
@@ -527,19 +531,19 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         self.tray_icon.update_done()
 
-        if serials_with_updates and status == 'ok':
-            self.s_send_db_task.emit(self.db_worker.get_serials)
+        if serials_with_updates and status == UpgradeStatus.OK:
+            self.s_send_db_task.emit(self.db_manager.get_serials)
             NoticePluginsContainer.send_notice_everyone(
                 serials_with_updates, 'add'
             )
-        elif status == 'ok' and type_run == 'user':
+        elif status == UpgradeStatus.OK and type_run == 'user':
             self.tray_icon.showMessage(
                 'В курсе новых серий',
                 'Обновление базы завершено, новых серий не выходило')
-        elif status == 'cancelled':
+        elif status == UpgradeStatus.CANCELLED:
             self.tray_icon.showMessage('В курсе новых серий',
                                        'Обновление отменено')
-        elif status == 'error':
+        elif status == UpgradeStatus.ERROR:
             self.tray_icon.showMessage('В курсе новых серий',
                                        'При обновлении базы возникла ошибка')
 

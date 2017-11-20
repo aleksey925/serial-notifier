@@ -9,13 +9,13 @@ from pypac import PACSession, get_pac
 from pypac.parser import PACFile
 
 from config_readers import ConfigsProgram, SerialsUrls
+from update_status import UpgradeStatus
 
 
 class ThreadDownloader(QtCore.QObject):
     """
     Асинхронных загрузчик данных с web страниц основанный на потоках
     """
-    # todo реализовать timeout для всех потоков
     s_worker_complete = QtCore.pyqtSignal(dict, name='worker_complete')
     s_init_completed = QtCore.pyqtSignal(object, object, name='init_completed')
 
@@ -31,6 +31,7 @@ class ThreadDownloader(QtCore.QObject):
         self.initializer: AsyncInitDownloader = None
         self.count_urls = 0
         self.count_completed_workers = 0
+        self.f_stop_download = False
         self._workers = []
         self._downloaded_pages = {}
         self._logger = logging.getLogger('main')
@@ -48,11 +49,18 @@ class ThreadDownloader(QtCore.QObject):
         :param future: объект feature через который скачаные страницы
         будут переданы для дальнейшей обработки
         """
+        self._workers.clear()
+        self._downloaded_pages.clear()
+        self.count_completed_workers = 0
+        self.f_stop_download = False
+
         self._future = future
-        self.count_urls = sum(map(len, self.target_urls.data.values()))
+        self.count_urls = sum(
+            map(lambda i: len(i['urls']), self.target_urls.data.values())
+        )
 
         if self.count_urls == 0:
-            self._future.set_result(['normal', {}])
+            self._future.set_result([UpgradeStatus.OK, {}])
             return
 
         self.initializer = AsyncInitDownloader(
@@ -64,18 +72,21 @@ class ThreadDownloader(QtCore.QObject):
         """
         Отменяет загрузку
         """
+        self.f_stop_download = True
+
         for i in self._workers:
             i.f_stop_download = True
 
-        self._future.set_result(['cancelled', {}])
+        self._future.set_result([UpgradeStatus.CANCELLED, {}])
 
     def _run(self):
-        self._workers.clear()
-        self._downloaded_pages.clear()
-        self.count_completed_workers = 0
+        if self.f_stop_download:
+            # Если обновление отменили на моменте инициализации загрузчика
+            # то предотвращаем создание воркеров и т д
+            return
 
         if not self._internet_is_available:
-            self._future.set_result(['cancelled', {}])
+            self._future.set_result([UpgradeStatus.CANCELLED, {}])
             return
 
         target_urls = deepcopy(self.target_urls.data)
@@ -91,7 +102,8 @@ class ThreadDownloader(QtCore.QObject):
             worker.start()
             self._workers.append(worker)
 
-    def _initialization_completed(self, pac: PACFile, internet_is_available: bool):
+    def _initialization_completed(self, pac: PACFile,
+                                  internet_is_available: bool):
         """
         Вызывается при завершении инициализации и запускает процесс скачивания
         web страниц
@@ -109,10 +121,13 @@ class ThreadDownloader(QtCore.QObject):
         :param downloaded_pages: страницы загруженные worker
         """
         self.count_completed_workers += 1
-        self._downloaded_pages.update(downloaded_pages)
 
-        if self.count_completed_workers == len(self._workers):
-            self._future.set_result(['normal', self._downloaded_pages])
+        for site_name, data in downloaded_pages.items():
+            self._downloaded_pages.setdefault(site_name, []).extend(data)
+
+        if (self.count_completed_workers == len(self._workers)
+                and self.f_stop_download is False):
+            self._future.set_result([UpgradeStatus.OK, self._downloaded_pages])
 
 
 class Worker(QtCore.QThread):
@@ -140,17 +155,32 @@ class Worker(QtCore.QThread):
                     break
 
                 try:
-                    serial_name, url = self.target_urls[site_name].pop()
+                    serial_name, url = self.target_urls[site_name]['urls'].pop()
+                    encoding = self.target_urls[site_name]['encoding']
                 except IndexError:
                     del self.target_urls[site_name]
                     continue
 
-            html = self.session.get(
-                url, hooks={'response': self.terminate_download}
-            ).text
+            try:
+                html = self.session.get(
+                    url, hooks={'response': self.terminate_download}
+                )
+            except requests.exceptions.ConnectionError:
+                self._logger.error(f'ConnectionError, {url}')
+                continue
+            except WorkerTerminate:
+                # Прерываем работу worker
+                return
+            except Exception as e:
+                self._logger.error(f'{e.__class__.__name__}, {url}')
+                continue
+
+            if encoding:
+                html.encoding = encoding
+
             self._downloaded_pages.setdefault(
                 site_name, []
-            ).append([serial_name, html])
+            ).append([serial_name, html.text])
 
         self.s_worker_complete.emit(self._downloaded_pages)
 
@@ -159,8 +189,7 @@ class Worker(QtCore.QThread):
         Прерывает скачивание
         """
         if self.f_stop_download:
-            self.terminate()
-            self.wait(0)
+            raise WorkerTerminate()
 
 
 class AsyncInitDownloader(QtCore.QThread):
@@ -203,6 +232,13 @@ class AsyncInitDownloader(QtCore.QThread):
             return False
 
 
+class WorkerTerminate(Exception):
+    """
+    Исключение показывающие, что необходимо завершить работу потока
+    """
+    pass
+
+
 if __name__ == '__main__':
     from quamash import QEventLoop
     from configs import base_dir
@@ -211,9 +247,13 @@ if __name__ == '__main__':
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
 
+
     def print_res(data):
-        print(data.result())
+        for site_name, data in data.result()[1].items():
+            for serial_name, html in data:
+                print(site_name, serial_name)
         exit(0)
+
 
     future = asyncio.Future()
     future.add_done_callback(print_res)
@@ -225,4 +265,3 @@ if __name__ == '__main__':
 
     with loop:
         loop.run_forever()
-
