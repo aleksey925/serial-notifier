@@ -517,7 +517,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Отменяет процесс получения данных о новых сериях
         """
-        self.upgrades_scheduler.loader.gather_tasks.cancel()
+        self.upgrades_scheduler.loader.cancel_download()
 
     def upgrade_complete(self, status, serials_with_updates, type_run):
         """

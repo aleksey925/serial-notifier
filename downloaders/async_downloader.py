@@ -1,6 +1,3 @@
-"""
-Реализация загрузки html страниц
-"""
 import asyncio
 import logging
 import concurrent.futures
@@ -12,9 +9,9 @@ import async_timeout
 from config_readers import SerialsUrls, ConfigsProgram
 
 
-class Downloader:
+class AsyncDownloader:
     """
-    Асинхронный загрузчик HTML страниц сайтов с сериалами
+    Асинхронных загрузчик данных с web страниц основанный на коррутинах
     """
     def __init__(self, target_urls: SerialsUrls, conf_program: ConfigsProgram):
         self.target_urls = target_urls
@@ -39,7 +36,12 @@ class Downloader:
                 f'подключение к интернету.'
             )
         except Exception as e:
-            self._logger.error(f'{e.__class__.__name__} {url}')
+            if isinstance(e, asyncio.CancelledError):
+                # Пробрасываем ошибку дальше, потому что она сообщает об отмене
+                # пользователем загрузки данных
+                raise
+            else:
+                self._logger.error(f'{e.__class__.__name__} {url}')
 
     def _check_internet_access(self):
         try:
@@ -92,6 +94,19 @@ class Downloader:
 
             future.set_result(['normal', self._downloaded_pages])
 
+    def start(self, future: asyncio.Future):
+        """
+        Запускает асинхронное скачивание информации о новых сериях
+        :param future: future объект через который передаются скаченные страницы
+        """
+        asyncio.ensure_future(self.run(future))
+
+    def cancel_download(self):
+        """
+        Отменяет загрузку
+        """
+        self.gather_tasks.cancel()
+
 
 if __name__ == '__main__':
     from configs import base_dir
@@ -108,7 +123,7 @@ if __name__ == '__main__':
 
     urls = SerialsUrls(base_dir)
     conf_program = ConfigsProgram(base_dir)
-    d = Downloader(urls, conf_program)
-    asyncio.ensure_future(d.run(future))
+    d = AsyncDownloader(urls, conf_program)
+    d.start(future)
 
     loop.run_forever()

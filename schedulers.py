@@ -1,16 +1,14 @@
 import asyncio
+from queue import Queue
 
 import dependency_injector.containers as cnt
 import dependency_injector.providers as prv
-
-from queue import Queue
-
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt, pyqtSignal
 
 from config_readers import SerialsUrls, ConfigsProgram
+from downloaders import ThreadDownloader
 from parsers import AsyncParserHTML
-from downloader import Downloader
 
 
 class DIServises(cnt.DeclarativeContainer):
@@ -39,7 +37,7 @@ class UpgradesScheduler(QtCore.QTimer):
         self.urls: SerialsUrls = DIServises.serials_urls()
         self.conf_program: ConfigsProgram = DIServises.conf_program()
 
-        self.loader = Downloader(self.urls, self.conf_program)
+        self.loader = ThreadDownloader(self.urls, self.conf_program)
 
         self.db_worker = DIServises.db_manager()
         self.db_worker.s_status_update.connect(self.upgrade_db_complete,
@@ -69,7 +67,7 @@ class UpgradesScheduler(QtCore.QTimer):
             f_download_complete = asyncio.Future()
             f_download_complete.add_done_callback(self.download_complete)
 
-            asyncio.ensure_future(self.loader.run(f_download_complete))
+            self.loader.start(f_download_complete)
 
     def download_complete(self, download_result: asyncio.Future):
         """

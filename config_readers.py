@@ -75,7 +75,8 @@ class SerialsUrls(BaseConfigReader):
         for section, options in self.data.items():
             data[section] = []
             for value in options['urls'].split('\n'):
-                data[section].append(value.split(';'))
+                if value != '':
+                    data[section].append(value.split(';'))
 
         self.data = data
 
@@ -100,13 +101,16 @@ class ConfigsProgram(BaseConfigReader):
         self.default_settings = {
             'general': {
                 'refresh_interval': '10',
-                'timeout_update': '100'
+                'timeout_update': '100',
+                'thread_count': '10',
+                'pac_file': 'https://antizapret.prostovpn.org/proxy.pac'
             }
         }
         self.converter = {
             'general': {
                 'refresh_interval': lambda i: int(i) * 60000,
-                'timeout_update': lambda i: int(i)
+                'timeout_update': lambda i: int(i),
+                'thread_count': lambda i: int(i)
             }
         }
         self.init()
@@ -125,8 +129,8 @@ class ConfigsProgram(BaseConfigReader):
 if __name__ == '__main__':
     from configs import base_dir
 
-    c = ConfigsProgram(base_dir)
-    print(c.data)
+    #c = ConfigsProgram(base_dir)
+    #print(c.data)
 
     c1 = SerialsUrls(base_dir)
     print(c1.data)
