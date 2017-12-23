@@ -1,4 +1,3 @@
-import asyncio
 from queue import Queue
 
 import dependency_injector.containers as cnt
@@ -7,8 +6,8 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import Qt, pyqtSignal
 
 from config_readers import SerialsUrls, ConfigsProgram
-from update_status import UpgradeStatus
-from downloaders import ThreadDownloader
+from upgrade_state import UpgradeState
+from downloaders import AsyncDownloader
 from parsers import AsyncParserHTML
 
 
@@ -38,7 +37,10 @@ class UpgradesScheduler(QtCore.QTimer):
         self.urls: SerialsUrls = DIServises.serials_urls()
         self.conf_program: ConfigsProgram = DIServises.conf_program()
 
-        self.loader = ThreadDownloader(self.urls, self.conf_program)
+        self.loader = AsyncDownloader(self.urls, self.conf_program)
+        self.loader.s_download_complete.connect(
+            self.download_complete, Qt.QueuedConnection
+        )
 
         self.db_manager = DIServises.db_manager()
         self.db_manager.s_status_update.connect(
@@ -66,23 +68,21 @@ class UpgradesScheduler(QtCore.QTimer):
             self.urls.read()
             self.conf_program.read()
 
-            f_download_complete = asyncio.Future()
-            f_download_complete.add_done_callback(self.download_complete)
+            self.loader.start()
 
-            self.loader.start(f_download_complete)
-
-    def download_complete(self, download_result: asyncio.Future):
+    def download_complete(self, download_result: tuple):
         """
         Вызывается после того как загрузка была завершена и инициирует парсинг
         html страниц
         :param download_result: объект future содержащий список со статусом и
         скачанными данными.
         """
-        data = download_result.result()
-        if data[0] == UpgradeStatus.CANCELLED:
-            self.upgrade_db_complete(data[0], {})
+        # todo добавить возможность пробрасывать из загрузчика информации об ошибках
+        if (download_result[0] == UpgradeState.CANCELLED
+            or download_result[0] == UpgradeState.ERROR):
+            self.upgrade_db_complete(download_result[0], {})
         else:
-            self.s_send_data_parser.emit(data[1])
+            self.s_send_data_parser.emit(download_result[1])
 
     def parse_complete(self, serials_data: dict):
         """
@@ -97,7 +97,7 @@ class UpgradesScheduler(QtCore.QTimer):
             lambda: self.db_manager.upgrade_db(serials_data)
         )
 
-    def upgrade_db_complete(self, status: UpgradeStatus,
+    def upgrade_db_complete(self, status: UpgradeState,
                             serials_with_updates: dict):
         """
         :param status Указывает успешно или нет завершилась операция обновления

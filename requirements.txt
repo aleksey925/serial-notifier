@@ -8,3 +8,4 @@ lxml
 PyQt5
 requests
 pypac==0.4.0
+serial-notifier-go_downloader

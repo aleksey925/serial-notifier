@@ -12,7 +12,7 @@ from db.managers import DbManager
 from config_readers import SerialsUrls
 from gui.widgets import SearchLineEdit, SortFilterProxyModel, BoardNotices
 from configs import base_dir
-from update_status import UpgradeStatus
+from upgrade_state import UpgradeState
 
 
 class DIServises(cnt.DeclarativeContainer):
@@ -522,7 +522,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         self.upgrades_scheduler.loader.cancel_download()
 
-    def upgrade_complete(self, status: UpgradeStatus,
+    def upgrade_complete(self, status: UpgradeState,
                          serials_with_updates: dict, type_run: str):
         """
         Вызывается после завершения обновления БД, чтобы включить отключеные
@@ -531,21 +531,21 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         self.tray_icon.update_done()
 
-        if serials_with_updates and status == UpgradeStatus.OK:
+        if serials_with_updates and status == UpgradeState.OK:
             self.s_send_db_task.emit(self.db_manager.get_serials)
             NoticePluginsContainer.send_notice_everyone(
                 serials_with_updates, 'add'
             )
-        elif status == UpgradeStatus.OK and type_run == 'user':
+        elif status == UpgradeState.OK and type_run == 'user':
             self.tray_icon.showMessage(
                 'В курсе новых серий',
                 'Обновление базы завершено, новых серий не выходило')
-        elif status == UpgradeStatus.CANCELLED:
+        elif status == UpgradeState.CANCELLED:
             self.tray_icon.showMessage('В курсе новых серий',
                                        'Обновление отменено')
-        elif status == UpgradeStatus.ERROR:
+        elif status == UpgradeState.ERROR:
             self.tray_icon.showMessage('В курсе новых серий',
-                                       'При обновлении базы возникла ошибка')
+                                       'При обновлении возникла ошибка')
 
     def update_list_serial(self, all_serials):
         """

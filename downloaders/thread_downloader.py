@@ -9,7 +9,7 @@ from pypac import PACSession, get_pac
 from pypac.parser import PACFile
 
 from config_readers import ConfigsProgram, SerialsUrls
-from update_status import UpgradeStatus
+from upgrade_state import UpgradeState
 
 
 class ThreadDownloader(QtCore.QObject):
@@ -60,7 +60,7 @@ class ThreadDownloader(QtCore.QObject):
         )
 
         if self.count_urls == 0:
-            self._future.set_result([UpgradeStatus.OK, {}])
+            self._future.set_result([UpgradeState.OK, {}])
             return
 
         self.initializer = AsyncInitDownloader(
@@ -77,7 +77,7 @@ class ThreadDownloader(QtCore.QObject):
         for i in self._workers:
             i.f_stop_download = True
 
-        self._future.set_result([UpgradeStatus.CANCELLED, {}])
+        self._future.set_result((UpgradeState.CANCELLED, {}))
 
     def _run(self):
         if self.f_stop_download:
@@ -86,7 +86,7 @@ class ThreadDownloader(QtCore.QObject):
             return
 
         if not self._internet_is_available:
-            self._future.set_result([UpgradeStatus.CANCELLED, {}])
+            self._future.set_result((UpgradeState.CANCELLED, {}))
             return
 
         target_urls = deepcopy(self.target_urls.data)
@@ -127,7 +127,7 @@ class ThreadDownloader(QtCore.QObject):
 
         if (self.count_completed_workers == len(self._workers)
                 and self.f_stop_download is False):
-            self._future.set_result([UpgradeStatus.OK, self._downloaded_pages])
+            self._future.set_result((UpgradeState.OK, self._downloaded_pages))
 
 
 class Worker(QtCore.QThread):
