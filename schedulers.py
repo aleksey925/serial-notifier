@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from config_readers import SerialsUrls, ConfigsProgram
 from upgrade_state import UpgradeState
 from downloaders import AsyncDownloader
-from parsers import AsyncParserHTML
+from parsers import AsyncHtmlParser
 
 
 class DIServises(cnt.DeclarativeContainer):
@@ -24,9 +24,9 @@ class UpgradesScheduler(QtCore.QTimer):
     """
 
     # Отправляет данные для парсинга
-    s_send_data_parser = pyqtSignal(object, name='send_data_parser')
+    s_send_data_parser = pyqtSignal(dict, name='send_data_parser')
 
-    s_upgrade_complete = pyqtSignal(object, object, object,
+    s_upgrade_complete = pyqtSignal(UpgradeState, list, list, dict, str,
                                     name='upgrade_complete')
 
     def __init__(self):
@@ -37,8 +37,12 @@ class UpgradesScheduler(QtCore.QTimer):
         self.urls: SerialsUrls = DIServises.serials_urls()
         self.conf_program: ConfigsProgram = DIServises.conf_program()
 
-        self.loader = AsyncDownloader(self.urls, self.conf_program)
-        self.loader.s_download_complete.connect(
+        # Храним состояние загрузки
+        self.error_msgs: list = []
+        self.urls_errors: list = []
+
+        self.downloader = AsyncDownloader(self.urls, self.conf_program)
+        self.downloader.s_download_complete.connect(
             self.download_complete, Qt.QueuedConnection
         )
 
@@ -47,7 +51,7 @@ class UpgradesScheduler(QtCore.QTimer):
             self.upgrade_db_complete, Qt.QueuedConnection
         )
 
-        self.parser = AsyncParserHTML(self.s_send_data_parser)
+        self.parser = AsyncHtmlParser(self.s_send_data_parser)
         self.parser.s_data_ready.connect(self.parse_complete)
 
         # Запускаем таймер
@@ -68,23 +72,28 @@ class UpgradesScheduler(QtCore.QTimer):
             self.urls.read()
             self.conf_program.read()
 
-            self.loader.start()
+            self.downloader.start()
 
-    def download_complete(self, download_result: tuple):
+    def download_complete(self, status: UpgradeState, error_msgs: list,
+                          urls_errors: list, downloaded_pages: dict):
         """
         Вызывается после того как загрузка была завершена и инициирует парсинг
         html страниц
-        :param download_result: объект future содержащий список со статусом и
-        скачанными данными.
+        :param status: статус обновления
+        :param error_msgs: ошибок возникших при обновлении
+        :param urls_errors: описание проблем возниших при доступе к
+        определенному url
+        :param downloaded_pages: скачанные страницы
+        :return:
         """
-        # todo добавить возможность пробрасывать из загрузчика информации об ошибках
-        if (download_result[0] == UpgradeState.CANCELLED
-            or download_result[0] == UpgradeState.ERROR):
-            self.upgrade_db_complete(download_result[0], {})
+        self.error_msgs = error_msgs
+        self.urls_errors = urls_errors
+        if status in (UpgradeState.CANCELLED, UpgradeState.ERROR):
+            self.upgrade_db_complete(status, [], {})
         else:
-            self.s_send_data_parser.emit(download_result[1])
+            self.s_send_data_parser.emit(downloaded_pages)
 
-    def parse_complete(self, serials_data: dict):
+    def parse_complete(self, serials_data: dict, errors: list):
         """
         Получает данные извлеченные из скаченых HTML старниц отпрвляет их
         для обновления БД
@@ -92,17 +101,30 @@ class UpgradesScheduler(QtCore.QTimer):
         :param serials_data Данные о сериалах полученые после парсинга HTML
         Пример:
         {'filin.tv': {'Теория Большого взрыва': {'Серия': [17], 'Сезон': 1},}
+        :param errors список сериалов страницы с которыми не удалось распарсить
         """
+        self.urls_errors.extend(errors)
         self.db_manager.s_send_db_task.emit(
             lambda: self.db_manager.upgrade_db(serials_data)
         )
 
-    def upgrade_db_complete(self, status: UpgradeState,
+    def upgrade_db_complete(self, status: UpgradeState, error_msgs: list,
                             serials_with_updates: dict):
         """
         :param status Указывает успешно или нет завершилась операция обновления
-        базы данных.
-        :param serials_with_updates
+         базы данных
+        :param error_msgs сообщения об ошибках
+        :param serials_with_updates обновившиеся сериалы
         """
         type_run = self.flag_progress.get()
-        self.s_upgrade_complete.emit(status, serials_with_updates, type_run)
+        self.error_msgs.extend(error_msgs)
+        self.s_upgrade_complete.emit(
+            status, self.error_msgs, self.urls_errors, serials_with_updates,
+            type_run
+        )
+
+    def clear_downloader(self):
+        if self.flag_progress.empty():
+            self.downloader.clear()
+            self.error_msgs.clear()
+            self.urls_errors.clear()

@@ -16,7 +16,9 @@ class DbManager(QtCore.QThread):
     блокировать GUI
     """
     s_serials_extracted = QtCore.pyqtSignal(object, name='serials_extracted')
-    s_status_update = QtCore.pyqtSignal(object, object, name='status_update')
+    s_status_update = QtCore.pyqtSignal(
+        UpgradeState, list, dict, name='status_update'
+    )
 
     def __init__(self, s_send_db_task):
         super(DbManager, self).__init__()
@@ -120,9 +122,9 @@ class DbManager(QtCore.QThread):
 
     def upgrade_db(self, serials_data: dict):
         """
-        Получает распарсенные данные и тех, что нету в БД добавляет.
+        Находит новые данные и загружает их в БД
 
-        :argument serials_data Данные о сериалах
+        :param serials_data Данные о сериалах
         Пример:
         {'filin.tv': {'Незабываемое': {'Серия': (13,), 'Сезон': 4}}}
         """
@@ -145,10 +147,14 @@ class DbManager(QtCore.QThread):
                     new_data.setdefault(site_name, {})[serial_name] = data
         try:
             self.db_session.commit()
-            self.s_status_update.emit(UpgradeState.OK, new_data)
+            self.s_status_update.emit(UpgradeState.OK, [], new_data)
         except Exception:
             self.db_session.rollback()
-            self.s_status_update.emit(UpgradeState.ERROR, new_data)
+            self.s_status_update.emit(
+                UpgradeState.ERROR,
+                ['Не удалось обновить данные в БД'], new_data
+
+            )
             self._logger.error(
                 f'Не удалось обновить данные в БД.\n{traceback.format_exc()}'
             )

@@ -8,4 +8,5 @@ class UpgradeState(enum.Enum):
     """
     OK = 'ok'
     ERROR = 'error'
+    WARNING = 'warning'
     CANCELLED = 'cancelled'

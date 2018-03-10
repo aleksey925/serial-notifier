@@ -8,7 +8,7 @@ from . import NoticePluginsContainer, DIServises, BaseNoticePlugin, \
     UpdateCounterAction
 
 
-class SystemNotice(NoticePluginsContainer, BaseNoticePlugin):
+class DesktopNotice(NoticePluginsContainer, BaseNoticePlugin):
     name = 'system_notice'
     description = ('Показывает стандартные системные уведомления и изменяет '
                    'состояния счетчика новых уведомлений на иконке приложения')
@@ -45,15 +45,16 @@ class SystemNotice(NoticePluginsContainer, BaseNoticePlugin):
             font.setPointSizeF(size)
             setattr(self, f'font_{target}', font)
 
-    def send_notice(self, data, counter_action=None):
+    def send_notice(self, data, warning,
+                    counter_action: UpdateCounterAction = None):
         self.tray_icon.showMessage(
-            'В курсе новых серий', self.build_notice(data)
+            'В курсе новых серий',  self.build_notice(data) + warning
         )
 
         if counter_action and not self.main_window.isActiveWindow():
             self.update_counter(counter_action)
 
-    def update_counter(self, counter_action=UpdateCounterAction.ADD):
+    def update_counter(self, counter_action: UpdateCounterAction=UpdateCounterAction.ADD):
         if counter_action is UpdateCounterAction.CLEAR:
             self.count = 0
             self.app.setWindowIcon(self.app.icon)
@@ -135,7 +136,8 @@ class NoticeFile(NoticePluginsContainer, BaseNoticePlugin):
     def __init__(self):
         super().__init__()
 
-    def send_notice(self, data, counter_action=None):
+    def send_notice(self, data, warning,
+                    counter_action: UpdateCounterAction = None):
         with open(self.conf_program.data['general']['path'], 'a') as out:
             out.write(
                 f'{time.strftime("(%Y-%m-%d) (%H:%M:%S)")} '
@@ -153,5 +155,6 @@ class BoardNotices(NoticePluginsContainer, BaseNoticePlugin):
 
         self.board_notices = DIServises.board_notices()
 
-    def send_notice(self, data, counter_action=None):
+    def send_notice(self, data, warning,
+                    counter_action: UpdateCounterAction = None):
         self.board_notices.add_notification(data)

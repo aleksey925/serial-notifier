@@ -6,6 +6,7 @@
 """
 import re
 import logging
+import traceback
 
 import lxml.html
 
@@ -116,6 +117,7 @@ def parse_serial_page(serial_raw_data: dict):
     :argument logger логгер
     """
     result = {}
+    errors = []
     logger = logging.getLogger('main')
 
     for site_name, pages in serial_raw_data.items():
@@ -124,11 +126,11 @@ def parse_serial_page(serial_raw_data: dict):
             try:
                 res = parsers[site_name](html_page)
             except Exception:
-                logger.fatal(
-                    'Ошибка парсинга. {}: {}'.format(site_name, serial_name)
-                )
+                message = f'Ошибка парсинга. {site_name}: {serial_name}'
+                errors.append(message)
+                logger.error(message + f'\n{traceback.format_exc()}')
             else:
                 if res:
                     result[site_name][serial_name] = res
 
-    return result
+    return result, errors

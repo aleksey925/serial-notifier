@@ -15,6 +15,9 @@ from configs import base_dir
 from upgrade_state import UpgradeState
 
 
+WINDOW_TITLE = 'В курсе новых серий'
+
+
 class DIServises(cnt.DeclarativeContainer):
     tray_icon = prv.Provider()
     serial_tree = prv.Provider()
@@ -31,7 +34,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         super(SystemTrayIcon, self).__init__(parent)
         self.main_window = parent
 
-        self.setToolTip('В курсе новых серий')
+        self.setToolTip(WINDOW_TITLE)
         self.activated.connect(self.click_trap)
 
         self.icons = {
@@ -55,7 +58,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
     def change_icon(self, state):
         self.setIcon(self.icons[state])
         if state == 'normal':
-            self.setToolTip('В курсе новых серий')
+            self.setToolTip(WINDOW_TITLE)
         else:
             self.setToolTip('Ищем новые серии...')
 
@@ -391,7 +394,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
         super(MainWindow, self).__init__()
-        self.setWindowTitle('В курсе новых серий')
+        self.setWindowTitle(WINDOW_TITLE)
         self.installEventFilter(self)
 
         # Инициализация компановщиков окна
@@ -520,10 +523,11 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Отменяет процесс получения данных о новых сериях
         """
-        self.upgrades_scheduler.loader.cancel_download()
+        self.upgrades_scheduler.downloader.cancel_download()
 
-    def upgrade_complete(self, status: UpgradeState,
-                         serials_with_updates: dict, type_run: str):
+    def upgrade_complete(self, status: UpgradeState, error_msgs: list,
+                         urls_errors: list, serials_with_updates: dict,
+                         type_run: str):
         """
         Вызывается после завершения обновления БД, чтобы включить отключеные
         кнопки меню и уведомить пользователя о новых сериях если таковые
@@ -531,21 +535,25 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         self.tray_icon.update_done()
 
-        if serials_with_updates and status == UpgradeState.OK:
+        warning = (f'\nЕсть ошибки по {len(urls_errors)} '
+                   f'источникам обновлений') if urls_errors else ''
+
+        if status == UpgradeState.OK and serials_with_updates:
             self.s_send_db_task.emit(self.db_manager.get_serials)
             NoticePluginsContainer.send_notice_everyone(
-                serials_with_updates, 'add'
+                serials_with_updates, warning, UpdateCounterAction.ADD
             )
         elif status == UpgradeState.OK and type_run == 'user':
             self.tray_icon.showMessage(
-                'В курсе новых серий',
-                'Обновление базы завершено, новых серий не выходило')
-        elif status == UpgradeState.CANCELLED:
-            self.tray_icon.showMessage('В курсе новых серий',
-                                       'Обновление отменено')
-        elif status == UpgradeState.ERROR:
-            self.tray_icon.showMessage('В курсе новых серий',
-                                       'При обновлении возникла ошибка')
+                WINDOW_TITLE,
+                f'Новых серий не выходило{warning}')
+        elif status != UpgradeState.OK:
+            self.tray_icon.showMessage(
+                WINDOW_TITLE, "\n".join(error_msgs) + warning
+            )
+
+        # todo добавить консоль для вывода ошибок из urls_errors
+        self.upgrades_scheduler.clear_downloader()
 
     def update_list_serial(self, all_serials):
         """

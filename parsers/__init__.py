@@ -1,1 +1,1 @@
-from .parser import AsyncParserHTML
+from .parser import AsyncHtmlParser

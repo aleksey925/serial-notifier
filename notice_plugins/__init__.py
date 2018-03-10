@@ -20,6 +20,11 @@ class DIServises(cnt.DeclarativeContainer):
     conf_program = prv.Provider()
 
 
+class UpdateCounterAction(enum.Enum):
+    ADD = 'add'
+    CLEAR = 'clear'
+
+
 class NoticePluginMount(type):
     required_attr = ['name', 'description']
 
@@ -61,12 +66,21 @@ class NoticePluginsContainer(metaclass=NoticePluginMount):
     count = 0
 
     @classmethod
-    def send_notice_everyone(cls, data, counter_action=''):
+    def send_notice_everyone(cls, data, warning,
+                             counter_action: UpdateCounterAction = None):
+        """
+        Отправляет уведомления во все зарегистрированные плагины
+        :param data: данные, которые будут выведены в уведомлении
+        :param warning: содержит предупреждение, если при доступе к каким-то
+        источникам обновлений возникли проблемы
+        :param counter_action: действие совершаемое со счетчиком
+        :return:
+        """
         for name, plugin in cls.plugins.items():
-            plugin.send_notice(data, counter_action)
+            plugin.send_notice(data, warning, counter_action)
 
     @classmethod
-    def update_all_counters(cls, counter_action='add'):
+    def update_all_counters(cls, counter_action=UpdateCounterAction.ADD):
         for name, plugin in cls.plugins.items():
             try:
                 plugin.update_counter(counter_action)
@@ -85,11 +99,6 @@ class NoticePluginsContainer(metaclass=NoticePluginMount):
             __import__(i, locals(), globals())
 
 
-class UpdateCounterAction(enum.Enum):
-    ADD = 'add'
-    CLEAR = 'clear'
-
-
 class BaseNoticePlugin:
     default_setting = {
         'enable': 'yes'
@@ -98,9 +107,11 @@ class BaseNoticePlugin:
     def __init__(self):
         self.conf_program: ConfigsProgram = DIServises.conf_program()
 
-    def send_notice(self, data, counter_action: UpdateCounterAction=None):
+    def send_notice(self, data, warning, counter_action: UpdateCounterAction=None):
         """
         :param data: данные, которые нужно отобразить в уведомлении
+        :param warning: содержит предупреждение, если при доступе к каким-то
+        источникам обновлений возникли проблемы
         :param counter_action: указывает, что нужно сделать: обновить счетчик
         или убрать счетчик. Может иметь значения add или clear.
         """
