@@ -67,7 +67,7 @@ class AsyncDownloader(QtCore.QObject):
         if not self._check_internet_access():
             self.s_download_complete.emit(
                 UpgradeState.ERROR, ['Отстуствует соединения с интернетом'],
-                self._urls_errors, self._downloaded_pages
+                [], {}
             )
             return
 
@@ -122,7 +122,6 @@ class AsyncDownloader(QtCore.QObject):
     def clear(self):
         """
         Очищается структуры данных используемые downloader`ом
-        :return:
         """
         self._downloaded_pages.clear()
         self._urls_errors.clear()

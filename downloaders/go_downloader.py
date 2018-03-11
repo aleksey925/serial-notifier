@@ -14,8 +14,12 @@ class GoDownloader(QtCore.QObject):
     """
     Асинхронных загрузчик web страниц использующий реализацию на go
     """
-    s_download_complete = QtCore.pyqtSignal(tuple, name='download_complete')
-    s_worker_complete = QtCore.pyqtSignal(dict, name='worker_complete')
+    s_download_complete = QtCore.pyqtSignal(
+        UpgradeState, list, list, dict, name='download_complete'
+    )
+    s_worker_complete = QtCore.pyqtSignal(
+        UpgradeState, list, list, dict, name='worker_complete'
+    )
     s_init_completed = QtCore.pyqtSignal(object, name='init_completed')
 
     def __init__(self, target_urls: SerialsUrls, conf_program: ConfigsProgram):
@@ -46,7 +50,10 @@ class GoDownloader(QtCore.QObject):
         )
 
         if count_urls == 0:
-            self.s_download_complete.emit((UpgradeState.OK, {}))
+            self.s_download_complete.emit(
+                UpgradeState.CANCELLED,
+                ['sites.conf пуст, нет сериалов для отслеживания'], [], {}
+            )
             return
 
         self.initializer = AsyncInitDownloader(self.s_init_completed)
@@ -68,7 +75,10 @@ class GoDownloader(QtCore.QObject):
             return
 
         if not self._internet_is_available:
-            self.s_download_complete.emit((UpgradeState.CANCELLED, {}))
+            self.s_download_complete.emit(
+                UpgradeState.ERROR, ['Отстуствует соединения с интернетом'],
+                [], {}
+            )
             return
 
         self._worker = Worker(
@@ -77,21 +87,34 @@ class GoDownloader(QtCore.QObject):
         )
         self._worker.start()
 
+    def _worker_complete(self, status: UpgradeState, error_msgs: list,
+                         urls_errors: list, downloaded_pages: dict):
+        """
+        Вызывается, когда скачиваение было завершено
+        :param status: статус обновления
+        :param error_msgs: ошибок возникших при обновлении
+        :param urls_errors: описание проблем возниших при доступе к
+        определенному url
+        :param downloaded_pages: скачанные страницы
+        """
+        if not self.f_stop_download:
+            self.s_download_complete.emit(
+                status, error_msgs, urls_errors, downloaded_pages
+            )
+
     def cancel_download(self):
         """
         Отменяет загрузку
         """
         self.f_stop_download = True
         downloader.cancel_download()
-        self.s_download_complete.emit((UpgradeState.CANCELLED, {}))
+        self.s_download_complete.emit(
+            UpgradeState.CANCELLED, ['Обновленние отменено пользователем'],
+            [], {}
+        )
 
-    def _worker_complete(self, downloaded_pages: dict):
-        """
-        Вызывается, когда скачиваение было завершено
-        :param downloaded_pages: загруженные страницы
-        """
-        if not self.f_stop_download:
-            self.s_download_complete.emit((UpgradeState.OK, downloaded_pages))
+    def clear(self):
+        pass
 
 
 class Worker(QtCore.QThread):
@@ -109,11 +132,15 @@ class Worker(QtCore.QThread):
         for site_name in self.target_urls.keys():
             del self.target_urls[site_name]['encoding']
 
-        downloaded_pages, download_state, err = downloader.start_download(
-            self.target_urls, self.pac_url, log_path
-        )
+        download_state, error_msgs, urls_errors, downloaded_pages = \
+            downloader.start_download(
+                self.target_urls, self.pac_url, log_path
+            )
 
-        self.s_worker_complete.emit(downloaded_pages)
+        self.s_worker_complete.emit(
+            UpgradeState(download_state), error_msgs, urls_errors,
+            downloaded_pages
+        )
 
 
 class AsyncInitDownloader(QtCore.QThread):
@@ -153,9 +180,12 @@ if __name__ == '__main__':
 
             self.downloader.start()
 
-        def download_complete(self, download_result: tuple):
-            print(download_result[0])
-            print(download_result[1])
+        def download_complete(self, status: UpgradeState, error_msgs: list,
+                              urls_errors: list, downloaded_pages: dict):
+            print('status:', status)
+            print('error_msgs: ', error_msgs)
+            print('urls_errors: ', urls_errors)
+            print('downloaded_pages: ', downloaded_pages)
             exit(0)
 
 

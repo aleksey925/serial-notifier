@@ -7,7 +7,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 
 from config_readers import SerialsUrls, ConfigsProgram
 from upgrade_state import UpgradeState
-from downloaders import AsyncDownloader
+from downloaders import GoDownloader
 from parsers import AsyncHtmlParser
 
 
@@ -41,7 +41,7 @@ class UpgradesScheduler(QtCore.QTimer):
         self.error_msgs: list = []
         self.urls_errors: list = []
 
-        self.downloader = AsyncDownloader(self.urls, self.conf_program)
+        self.downloader = GoDownloader(self.urls, self.conf_program)
         self.downloader.s_download_complete.connect(
             self.download_complete, Qt.QueuedConnection
         )
@@ -84,7 +84,6 @@ class UpgradesScheduler(QtCore.QTimer):
         :param urls_errors: описание проблем возниших при доступе к
         определенному url
         :param downloaded_pages: скачанные страницы
-        :return:
         """
         self.error_msgs = error_msgs
         self.urls_errors = urls_errors
