@@ -2,10 +2,11 @@ aiohttp==1.3.3
 async_timeout==1.1.0
 SQLAlchemy==1.2.0b2
 dependency_injector>=3.6.0
-quamash
+quamash>=0.6.0
 cssselect
 lxml
-PyQt5
+PyQt5>=5.10.1
+sip>=4.19.8
 requests
 pypac==0.4.0
-serial-notifier-go_downloader
+serial-notifier-go-downloader==0.0.1

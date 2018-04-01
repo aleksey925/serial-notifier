@@ -8,17 +8,14 @@ import async_timeout
 from PyQt5 import QtCore
 
 from config_readers import SerialsUrls, ConfigsProgram
+from downloaders.base_downloader import BaseDownloader
 from upgrade_state import UpgradeState
 
 
-class AsyncDownloader(QtCore.QObject):
+class AsyncDownloader(BaseDownloader):
     """
     Асинхронных загрузчик данных с web страниц основанный на коррутинах
     """
-    s_download_complete = QtCore.pyqtSignal(
-        UpgradeState, list, list, dict, name='download_complete'
-    )
-
     def __init__(self, target_urls: SerialsUrls, conf_program: ConfigsProgram):
         super().__init__()
         self.target_urls = target_urls

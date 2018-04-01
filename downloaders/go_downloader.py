@@ -7,16 +7,14 @@ from PyQt5 import QtCore
 
 from configs import log_path
 from config_readers import ConfigsProgram, SerialsUrls
+from downloaders.base_downloader import BaseDownloader
 from upgrade_state import UpgradeState
 
 
-class GoDownloader(QtCore.QObject):
+class GoDownloader(BaseDownloader):
     """
     Асинхронных загрузчик web страниц использующий реализацию на go
     """
-    s_download_complete = QtCore.pyqtSignal(
-        UpgradeState, list, list, dict, name='download_complete'
-    )
     s_worker_complete = QtCore.pyqtSignal(
         UpgradeState, list, list, dict, name='worker_complete'
     )
