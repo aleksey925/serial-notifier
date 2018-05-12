@@ -38,20 +38,22 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         self.activated.connect(self.click_trap)
 
         self.icons = {
-            'normal': QtGui.QIcon(join(base_dir, 'icons/app-48x48.png')),
+            'normal': QtGui.QIcon(join(base_dir, 'icons/app-icon-48x48')),
             'update': QtGui.QIcon(join(base_dir, 'icons/app-sync-48x48.png'))
         }
         self.setIcon(self.icons['normal'])
 
         # Меню
-        menu = QtWidgets.QMenu(self.parent())
-        self.a_open = menu.addAction('Открыть', self.show_window)
-        self.a_update = menu.addAction('Обновить')
+        self.menu = QtWidgets.QMenu(self.parent())
+        self.a_open = self.menu.addAction('Открыть', self.show_window)
+        self.a_update = self.menu.addAction('Обновить')
         self.a_update.setDisabled(False)
-        self.a_update_cancel = menu.addAction('Отменить обновление')
+        self.a_update_cancel = self.menu.addAction('Отменить обновление')
         self.a_update_cancel.setDisabled(True)
-        self.a_exit = menu.addAction('Выйти', QCoreApplication.instance().exit)
-        self.setContextMenu(menu)
+        self.a_exit = self.menu.addAction(
+            'Выйти', QCoreApplication.instance().exit
+        )
+        self.setContextMenu(self.menu)
 
         self.show()
 
@@ -62,14 +64,24 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         else:
             self.setToolTip('Ищем новые серии...')
 
-    def click_trap(self, reason):
+    def click_trap(self, event):
         """
         Вызывается при взаимодействии с иконой в трее и определяет, какое
         действие произошло
         """
         # left click!
-        if reason == self.Trigger and sys.platform != 'darwin':
-            self.show_hide_window()
+        if event == self.Trigger:
+            if sys.platform == 'darwin':
+                self.show_hide_window_darwin()
+            else:
+                self.show_hide_window()
+
+    def show_hide_window_darwin(self):
+        if self.main_window.isVisible() and self.main_window.isActiveWindow():
+            self.setContextMenu(self.menu)
+        else:
+            self.setContextMenu(QtWidgets.QMenu())
+            self.show_window()
 
     def show_hide_window(self):
         if self.main_window.isVisible() and self.main_window.isActiveWindow():
@@ -78,6 +90,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
             self.show_window()
 
     def show_window(self):
+        self.parent().setWindowState(QtCore.Qt.WindowNoState)
         self.parent().show()
         self.main_window.raise_()
         self.main_window.activateWindow()
@@ -199,7 +212,8 @@ class SerialTree(QtWidgets.QWidget):
         serial_name = self._selected_element[1].data()
 
         reply = QtWidgets.QMessageBox.information(
-            self, 'Удаление', 'Удалить сериал "{}"'.format(serial_name),
+            self, 'Удаление',
+            f'Вы уверены, что хотите удалить «{serial_name}»?',
             QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
             QtWidgets.QMessageBox.No
         )

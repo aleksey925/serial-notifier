@@ -118,7 +118,7 @@ def parse_serial_page(serial_raw_data: dict):
     """
     result = {}
     errors = []
-    logger = logging.getLogger('main')
+    logger = logging.getLogger('serial-notifier')
 
     for site_name, pages in serial_raw_data.items():
         result[site_name] = {}

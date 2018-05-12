@@ -1,72 +1,122 @@
-import asyncio
 import logging
 from copy import deepcopy
 from threading import Lock
+from urllib.parse import urlsplit
 
+import gopac
 import requests
 from PyQt5 import QtCore
-from pypac import PACSession, get_pac
-from pypac.parser import PACFile
+from gopac.exceptions import GoPacException, ErrorDecodeOutput
 
 from config_readers import ConfigsProgram, SerialsUrls
+from downloaders.base_downloader import BaseDownloader
 from upgrade_state import UpgradeState
 
 
-class ThreadDownloader(QtCore.QObject):
+# todo добавить поддержку timeout
+class ThreadDownloader(BaseDownloader):
     """
     Асинхронных загрузчик данных с web страниц основанный на потоках
     """
-    s_worker_complete = QtCore.pyqtSignal(dict, name='worker_complete')
-    s_init_completed = QtCore.pyqtSignal(object, object, name='init_completed')
+    s_worker_complete = QtCore.pyqtSignal(
+        list, list, dict, name='worker_complete'
+    )
 
-    def __init__(self, target_urls: SerialsUrls, conf_program: ConfigsProgram):
+    def __init__(self):
         super().__init__()
-        self.target_urls = target_urls
-        self.conf_program = conf_program.data['general']
 
         self._lock = Lock()
-        self._pac: PACFile = None
-        self._future: asyncio.Future = None
-        self._internet_is_available: bool = None
-        self.initializer: AsyncInitDownloader = None
         self.count_urls = 0
         self.count_completed_workers = 0
         self.f_stop_download = False
         self._workers = []
+        self._urls_errors = []
+        self._error_msgs = []
         self._downloaded_pages = {}
-        self._logger = logging.getLogger('main')
+        self._logger = logging.getLogger('serial-notifier')
 
         self.s_worker_complete.connect(
             self._worker_complete, QtCore.Qt.QueuedConnection
         )
-        self.s_init_completed.connect(
-            self._initialization_completed, QtCore.Qt.QueuedConnection
-        )
 
-    def start(self, future: asyncio.Future):
+    def start(self):
         """
         Запускает процесс скачивания web страниц
-        :param future: объект feature через который скачаные страницы
-        будут переданы для дальнейшей обработки
         """
         self._workers.clear()
-        self._downloaded_pages.clear()
         self.count_completed_workers = 0
         self.f_stop_download = False
 
-        self._future = future
         self.count_urls = sum(
             map(lambda i: len(i['urls']), self.target_urls.data.values())
         )
 
         if self.count_urls == 0:
-            self._future.set_result([UpgradeState.OK, {}])
+            self.s_download_complete.emit(
+                UpgradeState.CANCELLED,
+                ['sites.conf пуст, нет сериалов для отслеживания'], [], {}
+            )
             return
 
-        self.initializer = AsyncInitDownloader(
-            self.conf_program, self.s_init_completed
+        self.get_internet_status()
+
+    def check_internet_access(self, is_available):
+        if not is_available:
+            self.s_download_complete.emit(
+                UpgradeState.ERROR, ['Отстуствует соединение с интернетом'],
+                [], {}
+            )
+            return
+
+        self._run()
+
+    def _run(self):
+        if self.f_stop_download:
+            # Если обновление отменили на моменте инициализации загрузчика
+            # то предотвращаем создание воркеров и т д
+            return
+
+        target_urls = deepcopy(self.target_urls.data)
+
+        thread_count = self.conf_program['thread_downloader']['thread_count']
+        if self.count_urls < thread_count:
+            thread_count = self.count_urls
+
+        self._logger.info(
+            'Запросы выполняются {}'.format(
+                'через прокси' if self.conf_program['downloader']['use_proxy']
+                else 'на прямую'
+            )
         )
-        self.initializer.start()
+
+        for i in range(thread_count):
+            worker = Worker(
+                target_urls, self.conf_program, self._lock,
+                self.s_worker_complete
+            )
+            worker.start()
+            self._workers.append(worker)
+
+    def _worker_complete(self, urls_errors: list, error_msgs: list,
+                         downloaded_pages: dict):
+        """
+        Вызывается, когда worker закончил скачивание
+        :param downloaded_pages: страницы загруженные worker
+        """
+        self.count_completed_workers += 1
+
+        for site_name, data in downloaded_pages.items():
+            self._downloaded_pages.setdefault(site_name, []).extend(data)
+
+        self._urls_errors.extend(urls_errors)
+        self._error_msgs.extend(error_msgs)
+
+        if (self.count_completed_workers == len(self._workers)
+                and self.f_stop_download is False):
+            self.s_download_complete.emit(
+                UpgradeState.OK, self._error_msgs, self._urls_errors,
+                self._downloaded_pages
+            )
 
     def cancel_download(self):
         """
@@ -77,112 +127,115 @@ class ThreadDownloader(QtCore.QObject):
         for i in self._workers:
             i.f_stop_download = True
 
-        self._future.set_result((UpgradeState.CANCELLED, {}))
+        self.s_download_complete.emit(
+            UpgradeState.CANCELLED,
+            ['Обновленние отменено пользователем'], [], {}
+        )
 
-    def _run(self):
-        if self.f_stop_download:
-            # Если обновление отменили на моменте инициализации загрузчика
-            # то предотвращаем создание воркеров и т д
-            return
-
-        if not self._internet_is_available:
-            self._future.set_result((UpgradeState.CANCELLED, {}))
-            return
-
-        target_urls = deepcopy(self.target_urls.data)
-
-        if self.count_urls < self.conf_program['thread_count']:
-            thread_count = self.count_urls
-        else:
-            thread_count = self.conf_program['thread_count']
-
-        for i in range(thread_count):
-            worker = Worker(target_urls, self._pac, self._lock,
-                            self.s_worker_complete)
-            worker.start()
-            self._workers.append(worker)
-
-    def _initialization_completed(self, pac: PACFile,
-                                  internet_is_available: bool):
-        """
-        Вызывается при завершении инициализации и запускает процесс скачивания
-        web страниц
-        :param pac: pac файл для автоматической настройки proxy
-        :param internet_is_available: флаг отображающий доступность интернета
-        """
-        self._pac = pac
-        self._internet_is_available = internet_is_available
-
-        self._run()
-
-    def _worker_complete(self, downloaded_pages: dict):
-        """
-        Вызывается, когда worker закончил скачивание
-        :param downloaded_pages: страницы загруженные worker
-        """
-        self.count_completed_workers += 1
-
-        for site_name, data in downloaded_pages.items():
-            self._downloaded_pages.setdefault(site_name, []).extend(data)
-
-        if (self.count_completed_workers == len(self._workers)
-                and self.f_stop_download is False):
-            self._future.set_result((UpgradeState.OK, self._downloaded_pages))
+    def clear(self):
+        self._error_msgs.clear()
+        self._urls_errors.clear()
+        self._workers.clear()
+        self._downloaded_pages.clear()
 
 
 class Worker(QtCore.QThread):
     """
     Поток производящий скачивание web страниц
     """
-    def __init__(self, target_urls: dict, pac: PACFile, lock: Lock,
+    def __init__(self, target_urls: dict, conf_program: dict, lock: Lock,
                  s_worker_complete):
         super().__init__()
-        self.target_urls = target_urls
+        self._target_urls = target_urls
         self._lock = lock
-        self.session = PACSession(pac=pac)
+        self._check_internet_access_url = conf_program['downloader'][
+            'check_internet_access_url'
+        ]
+        self._use_proxy = conf_program['downloader']['use_proxy']
+        self.pac_url = conf_program['downloader']['pac_file']
+        self._session = requests.Session()
         self.s_worker_complete = s_worker_complete
-        self._logger = logging.getLogger('main')
+        self._logger = logging.getLogger('serial-notifier')
 
         self.f_stop_download = False
+        self._error_msgs = []
+        self._urls_errors = []
         self._downloaded_pages = {}
+
+    def set_proxy_for_session(self, url):
+        if not self._use_proxy:
+            return
+
+        domain = "{0.scheme}://{0.netloc}/".format(urlsplit(url))
+        try:
+            proxy = gopac.find_proxy(self.pac_url, domain)
+        except (ValueError, ErrorDecodeOutput, GoPacException) as e:
+            self._session.proxies = {}
+            self._error_msgs.append(f'Не удалось получить прокси для: {url}')
+            self._logger.error(f'Не удалось получить прокси для {url}', e)
+        else:
+            self._session.proxies = proxy
+
+    def clear_proxy_cache(self):
+        if not self._use_proxy:
+            return
+
+        gopac.find_proxy.cache_clear()
+
+    def fetch(self, url, recursion_deep=0):
+        if recursion_deep == 2:
+            return
+
+        try:
+            self.set_proxy_for_session(url)
+            return self._session.get(
+                url, timeout=5, hooks={'response': self.terminate_download}
+            )
+        except requests.exceptions.ConnectionError:
+            self.clear_proxy_cache()
+            message = f'Ошибка при подключении к: {url}'
+            self._logger.error(message)
+            self._urls_errors.append(message)
+            self.fetch(url, recursion_deep + 1)
+        except Exception as e:
+            self.clear_proxy_cache()
+            message = f'Непредвиденная ошибка при доступе к : {url}'
+            self._logger.error(message, e)
+            self._urls_errors.append(message)
+            self.fetch(url, recursion_deep + 1)
 
     def run(self):
         while True:
             with self._lock:
                 try:
-                    site_name = list(self.target_urls.keys())[0]
+                    site_name = list(self._target_urls.keys())[0]
                 except IndexError:
                     break
 
                 try:
-                    serial_name, url = self.target_urls[site_name]['urls'].pop()
-                    encoding = self.target_urls[site_name]['encoding']
+                    serial_name, url = self._target_urls[site_name]['urls'].pop()
+                    encoding = self._target_urls[site_name]['encoding']
                 except IndexError:
-                    del self.target_urls[site_name]
+                    del self._target_urls[site_name]
                     continue
 
             try:
-                html = self.session.get(
-                    url, hooks={'response': self.terminate_download}
-                )
-            except requests.exceptions.ConnectionError:
-                self._logger.error(f'ConnectionError, {url}')
-                continue
+                html = self.fetch(url)
             except WorkerTerminate:
-                # Прерываем работу worker
                 return
-            except Exception as e:
-                self._logger.error(f'{e.__class__.__name__}, {url}')
-                continue
 
+            if html is None:
+                continue
             if encoding:
                 html.encoding = encoding
 
-            self._downloaded_pages.setdefault(
-                site_name, []
-            ).append([serial_name, html.text])
+            self._downloaded_pages.setdefault(site_name, []).append(
+                [serial_name, html.text]
+            )
 
-        self.s_worker_complete.emit(self._downloaded_pages)
+        self.s_worker_complete.emit(
+            self._urls_errors, self._error_msgs, self._downloaded_pages
+        )
 
     def terminate_download(self, *args, **kwargs):
         """
@@ -190,46 +243,6 @@ class Worker(QtCore.QThread):
         """
         if self.f_stop_download:
             raise WorkerTerminate()
-
-
-class AsyncInitDownloader(QtCore.QThread):
-    """
-    Выполняет асинхронную инициализацию загрузчика (проверяет доступность
-    интернета, скачивает pac файл для автоматической настройки proxy)
-    """
-    def __init__(self, conf_program, s_init_completed):
-        super().__init__()
-        self.conf_program = conf_program
-        self.s_init_completed = s_init_completed
-
-        self._logger = logging.getLogger('main')
-
-    def run(self):
-        internet_is_available = self._check_internet_access()
-        pac = None
-
-        if self.conf_program['pac_file'] != '':
-            try:
-                pac = get_pac(url=self.conf_program['pac_file'])
-            except Exception as e:
-                self._logger.exception(e)
-            if not pac:
-                self._logger.error('Не удалось скачать pac файл для '
-                                   'автоматической настройки proxy')
-        else:
-            self._logger.info('Прокси не используется, pac файл не задан')
-
-        self.s_init_completed.emit(pac, internet_is_available)
-
-    def _check_internet_access(self):
-        try:
-            requests.get('http://google.com')
-            return True
-        except requests.exceptions.ConnectionError:
-            self._logger.info(
-                'Отстуствует доступ в интернет, проверьте подключение'
-            )
-            return False
 
 
 class WorkerTerminate(Exception):
@@ -240,28 +253,38 @@ class WorkerTerminate(Exception):
 
 
 if __name__ == '__main__':
-    from quamash import QEventLoop
+    import dependency_injector.containers as cnt
+    import dependency_injector.providers as prv
+
+    from downloaders import base_downloader
     from configs import base_dir
 
+    class DIServises_(cnt.DeclarativeContainer):
+        conf_program = prv.Singleton(ConfigsProgram, base_dir=base_dir)
+        serials_urls = prv.Singleton(SerialsUrls, base_dir=base_dir)
+
+    base_downloader.DIServises.override(DIServises_)
+
+    class SelfTest(QtCore.QObject):
+        def __init__(self):
+            super().__init__()
+            self.downloader = ThreadDownloader()
+
+            self.downloader.s_download_complete.connect(
+                self.download_complete, QtCore.Qt.QueuedConnection
+            )
+
+            self.downloader.start()
+
+        def download_complete(self, status: UpgradeState, error_msgs: list,
+                              urls_errors: list, downloaded_pages: dict):
+            print('status:', status)
+            print('error_msgs:', error_msgs)
+            print('urls_errors:', urls_errors)
+            print('downloaded_pages:', downloaded_pages)
+            exit(0)
+
+
     app = QtCore.QCoreApplication([])
-    loop = QEventLoop(app)
-    asyncio.set_event_loop(loop)
-
-
-    def print_res(data):
-        for site_name, data in data.result()[1].items():
-            for serial_name, html in data:
-                print(site_name, serial_name)
-        exit(0)
-
-
-    future = asyncio.Future()
-    future.add_done_callback(print_res)
-
-    urls = SerialsUrls(base_dir)
-    conf_program = ConfigsProgram(base_dir)
-    d = ThreadDownloader(urls, conf_program)
-    d.start(future)
-
-    with loop:
-        loop.run_forever()
+    test = SelfTest()
+    app.exec()

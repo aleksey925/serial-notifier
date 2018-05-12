@@ -8,7 +8,7 @@ import dependency_injector.providers as prv
 
 from config_readers import ConfigsProgram
 
-logger = logging.getLogger('main')
+logger = logging.getLogger('serial-notifier')
 
 
 class DIServises(cnt.DeclarativeContainer):

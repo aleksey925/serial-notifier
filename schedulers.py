@@ -1,3 +1,4 @@
+import logging
 from queue import Queue
 
 import dependency_injector.containers as cnt
@@ -7,7 +8,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 
 from config_readers import SerialsUrls, ConfigsProgram
 from upgrade_state import UpgradeState
-from downloaders import GoDownloader
+from downloaders import downloader, ThreadDownloader
 from parsers import AsyncHtmlParser
 
 
@@ -31,6 +32,7 @@ class UpgradesScheduler(QtCore.QTimer):
 
     def __init__(self):
         super().__init__()
+        self.logger = logging.getLogger('serial-notifier')
 
         # Сигнализирует производится уже обработка данных или нет
         self.flag_progress = Queue(maxsize=1)
@@ -41,7 +43,15 @@ class UpgradesScheduler(QtCore.QTimer):
         self.error_msgs: list = []
         self.urls_errors: list = []
 
-        self.downloader = GoDownloader(self.urls, self.conf_program)
+        self.downloader = downloader.get(
+            self.conf_program.data['downloader']['target_downloader'],
+            ThreadDownloader
+        )()
+        self.logger.info(
+            f'Для скачивания данных используется '
+            f'{self.downloader.__class__.__name__}'
+        )
+
         self.downloader.s_download_complete.connect(
             self.download_complete, Qt.QueuedConnection
         )

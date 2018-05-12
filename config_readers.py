@@ -11,7 +11,7 @@ class BaseConfigReader(ABC):
     Базовый класс для всех парсеров конфигурационных файлов
     """
     def __init__(self, base_dir, conf_name):
-        self._logger = logging.getLogger('main')
+        self._logger = logging.getLogger('serial-notifier')
         self._config = configparser.ConfigParser()
 
         self.data = {}
@@ -103,15 +103,31 @@ class ConfigsProgram(BaseConfigReader):
         self.default_settings = {
             'general': {
                 'refresh_interval': '10',
-                'timeout_update': '100',
-                'thread_count': '10',
-                'pac_file': 'https://antizapret.prostovpn.org/proxy.pac'
+            },
+            'downloader': {
+                'use_proxy': False,
+                'pac_file': 'https://antizapret.prostovpn.org/proxy.pac',
+                'target_downloader': 'thread_downloader',
+                'check_internet_access_url': 'http://ya.ru'
+            },
+            'async_downloader': {
+                'timeout_update': '100'
+            },
+            'thread_downloader': {
+                'thread_count': '10'
             }
         }
         self.converter = {
             'general': {
                 'refresh_interval': lambda i: int(i) * 60000,
+            },
+            'downloader': {
+                'use_proxy': lambda i: bool(i)
+            },
+            'async_downloader': {
                 'timeout_update': lambda i: int(i),
+            },
+            'thread_downloader': {
                 'thread_count': lambda i: int(i)
             }
         }
@@ -131,8 +147,8 @@ class ConfigsProgram(BaseConfigReader):
 if __name__ == '__main__':
     from configs import base_dir
 
-    #c = ConfigsProgram(base_dir)
-    #print(c.data)
+    c = ConfigsProgram(base_dir)
+    print(c.data)
 
     c1 = SerialsUrls(base_dir)
     print(c1.data)

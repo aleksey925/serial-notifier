@@ -2,7 +2,6 @@ import asyncio
 import logging
 import concurrent.futures
 
-import requests
 import aiohttp
 import async_timeout
 from PyQt5 import QtCore
@@ -12,21 +11,20 @@ from downloaders.base_downloader import BaseDownloader
 from upgrade_state import UpgradeState
 
 
+# todo добавить поддержку прокси
 class AsyncDownloader(BaseDownloader):
     """
     Асинхронных загрузчик данных с web страниц основанный на коррутинах
     """
-    def __init__(self, target_urls: SerialsUrls, conf_program: ConfigsProgram):
+    def __init__(self):
         super().__init__()
-        self.target_urls = target_urls
-        self.conf_program = conf_program.data['general']
-        self._logger = logging.getLogger('main')
+        self._logger = logging.getLogger('serial-notifier')
 
         self._gather_tasks = None
         self._downloaded_pages = {}
         self._urls_errors = []
 
-    async def fetch(self, session, site_name, serial_name, url):
+    async def _fetch(self, session, site_name, serial_name, url):
         try:
             async with session.get(url) as response:
                 page = await response.text()
@@ -35,7 +33,7 @@ class AsyncDownloader(BaseDownloader):
             message = f'URL {url} имеет неправильный формат'
             self._urls_errors.append(message)
             self._logger.error(message)
-        except aiohttp.errors.ClientConnectionError:
+        except aiohttp.ClientConnectionError:
             message = f'Ошибка подключени к {url}'
             self._urls_errors.append(message)
             self._logger.error(message)
@@ -50,24 +48,7 @@ class AsyncDownloader(BaseDownloader):
                 )
                 self._logger.error(f'{e.__class__.__name__} {url}')
 
-    def _check_internet_access(self):
-        try:
-            requests.get('http://google.com')
-            return True
-        except requests.exceptions.ConnectionError:
-            self._logger.info(
-                'Отстуствует соединения с интернетом'
-            )
-            return False
-
-    async def run(self):
-        if not self._check_internet_access():
-            self.s_download_complete.emit(
-                UpgradeState.ERROR, ['Отстуствует соединения с интернетом'],
-                [], {}
-            )
-            return
-
+    async def _run(self):
         tasks = []
 
         async with aiohttp.ClientSession() as session:
@@ -78,7 +59,7 @@ class AsyncDownloader(BaseDownloader):
                 self._downloaded_pages[site_name] = []
                 for i in site_data['urls']:
                     tasks.append(asyncio.ensure_future(
-                        self.fetch(session, site_name, *i))
+                        self._fetch(session, site_name, *i))
                     )
 
             if not tasks:
@@ -91,7 +72,7 @@ class AsyncDownloader(BaseDownloader):
 
             try:
                 with async_timeout.timeout(
-                        self.conf_program['timeout_update'],
+                        self.conf_program['async_downloader']['timeout_update'],
                         loop=session.loop):
                     try:
                         self._gather_tasks = asyncio.gather(*tasks)
@@ -128,7 +109,17 @@ class AsyncDownloader(BaseDownloader):
         """
         Запускает асинхронное скачивание информации о новых сериях
         """
-        asyncio.ensure_future(self.run())
+        self.get_internet_status()
+
+    def check_internet_access(self, is_available: bool):
+        if not is_available:
+            self.s_download_complete.emit(
+                UpgradeState.ERROR, ['Отстуствует соединение с интернетом'],
+                [], {}
+            )
+            return
+
+        asyncio.ensure_future(self._run())
 
     def cancel_download(self):
         """
@@ -138,15 +129,23 @@ class AsyncDownloader(BaseDownloader):
 
 
 if __name__ == '__main__':
+    import dependency_injector.containers as cnt
+    import dependency_injector.providers as prv
     from quamash import QEventLoop
+
+    from downloaders import base_downloader
     from configs import base_dir
+
+    class DIServises(cnt.DeclarativeContainer):
+        conf_program = prv.Singleton(ConfigsProgram, base_dir=base_dir)
+        serials_urls = prv.Singleton(SerialsUrls, base_dir=base_dir)
+
+    base_downloader.DIServises.override(DIServises)
 
     class SelfTest(QtCore.QObject):
         def __init__(self):
             super().__init__()
-            self.urls = SerialsUrls(base_dir)
-            self.conf_program = ConfigsProgram(base_dir)
-            self.downloader = AsyncDownloader(self.urls, self.conf_program)
+            self.downloader = AsyncDownloader()
 
             self.downloader.s_download_complete.connect(
                 self.download_complete, QtCore.Qt.QueuedConnection
@@ -164,11 +163,10 @@ if __name__ == '__main__':
 
 
     app = QtCore.QCoreApplication([])
-
-    loop = asyncio.get_event_loop()
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
 
     test = SelfTest()
 
-    loop.run_forever()
+    with loop:
+        loop.run_forever()

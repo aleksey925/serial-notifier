@@ -1,14 +1,21 @@
+import sys
 import logging
 
 
-def create_logger(path):
-    """
-    Создаёт объект, который отвечат за логирование
+def unhandled_exception_hook(exc_type, exc_value, exc_traceback):
+    logging.getLogger('serial-notifier').error(
+        '#CRITICAL Возникла непредвиденная ошибка в работе приложения:',
+        exc_info=(exc_type, exc_value, exc_traceback)
+    )
 
-    :argument path: str Путь в который будут писаться логи
+
+def init_logger(path):
     """
-    log = logging.getLogger('main')
-    log.setLevel(logging.DEBUG)
+    Инициализирует логгер, включает логгирование не перехваченных исключений
+    :param path: str путь к файлу с логами
+    """
+    log = logging.getLogger('serial-notifier')
+    log.setLevel(logging.INFO)
 
     # Определяется формат логов и добавляется к обработчику
     file_formatter = logging.Formatter(
@@ -19,13 +26,13 @@ def create_logger(path):
                                            'line %(lineno)d: %(message)s'))
 
     # Создаётся обработчик,который будет писать сообщения в файл
-    file_handler = logging.FileHandler(path)
-    file_handler.setLevel(logging.DEBUG)
+    file_handler = logging.FileHandler(path, encoding='UTF-8')
+    file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(file_formatter)
 
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(console_formatter)
-    console_handler.setLevel(logging.DEBUG)
+    console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(console_formatter)
 
     # system_tray_handler = logging.Handler()
@@ -38,3 +45,5 @@ def create_logger(path):
     log.addHandler(file_handler)
     log.addHandler(console_handler)
     # log.addHandler(system_tray_handler)
+
+    sys.excepthook = unhandled_exception_hook

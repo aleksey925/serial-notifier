@@ -23,7 +23,7 @@ class DbManager(QtCore.QThread):
     def __init__(self, s_send_db_task):
         super(DbManager, self).__init__()
         self.target = object
-        self._logger = logging.getLogger('main')
+        self._logger = logging.getLogger('serial-notifier')
         self.s_send_db_task = s_send_db_task
 
         self.db_session = None

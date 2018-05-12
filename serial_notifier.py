@@ -10,13 +10,14 @@ from PyQt5 import QtWidgets, QtGui
 
 import notice_plugins
 import schedulers
+from downloaders import base_downloader
 from db.managers import DbManager
 from gui import mainwindow
 from gui.widgets import SearchLineEdit, BoardNotices
 from gui.mainwindow import MainWindow, SerialTree, SystemTrayIcon
 from configs import base_dir, log_path
 from config_readers import ConfigsProgram, SerialsUrls
-from loggers import create_logger
+from loggers import init_logger
 
 
 class DIServises(cnt.DeclarativeContainer):
@@ -37,14 +38,15 @@ class DIServises(cnt.DeclarativeContainer):
 mainwindow.DIServises.override(DIServises)
 schedulers.DIServises.override(DIServises)
 notice_plugins.DIServises.override(DIServises)
+base_downloader.DIServises.override(DIServises)
 
 app: QtWidgets.QApplication = DIServises.app()
-app.icon = QtGui.QIcon(join(base_dir, 'icons/app-512x512.png'))
+app.icon = QtGui.QIcon(join(base_dir, 'icons/app-icon-512x512.png'))
 app.setWindowIcon(app.icon)
 loop = QEventLoop(app)
 asyncio.set_event_loop(loop)
 
-create_logger(log_path)
+init_logger(log_path)
 notice_plugins.NoticePluginsContainer.load_notice_plugins()
 
 window = DIServises.main_window()
