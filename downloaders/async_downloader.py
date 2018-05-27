@@ -72,25 +72,24 @@ class AsyncDownloader(BaseDownloader):
 
             try:
                 with async_timeout.timeout(
-                        self.conf_program['async_downloader']['timeout_update'],
+                        self.conf_program['async_downloader']['timeout'],
                         loop=session.loop):
-                    try:
-                        self._gather_tasks = asyncio.gather(*tasks)
-                        await self._gather_tasks
-                    except concurrent.futures.CancelledError:
-                        self.s_download_complete.emit(
-                            UpgradeState.CANCELLED,
-                            ['Обновленние отменено пользователем'], [], {}
-                        )
-                        return
+                    self._gather_tasks = asyncio.gather(*tasks)
+                    await self._gather_tasks
             except asyncio.TimeoutError:
-                message = ('TimeoutError, первышено время обновления. '
-                           'Получены данные только с части сайтов')
+                message = ('Первышено время обновления. Получены данные только'
+                           ' с части сайтов')
                 self.s_download_complete.emit(
                     UpgradeState.WARNING, [message], self._urls_errors,
                     self._downloaded_pages
                 )
                 self._logger.error(message)
+                return
+            except concurrent.futures.CancelledError:
+                self.s_download_complete.emit(
+                    UpgradeState.CANCELLED,
+                    ['Обновленние отменено пользователем'], [], {}
+                )
                 return
 
             self.s_download_complete.emit(

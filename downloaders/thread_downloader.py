@@ -13,7 +13,6 @@ from downloaders.base_downloader import BaseDownloader
 from upgrade_state import UpgradeState
 
 
-# todo добавить поддержку timeout
 class ThreadDownloader(BaseDownloader):
     """
     Асинхронных загрузчик данных с web страниц основанный на потоках
@@ -28,7 +27,9 @@ class ThreadDownloader(BaseDownloader):
         self._lock = Lock()
         self.count_urls = 0
         self.count_completed_workers = 0
-        self.f_stop_download = False
+        self.f_cancel_download = False
+        self.f_timeout_update = False
+        self.timeout_update_timer = QtCore.QTimer()
         self._workers = []
         self._urls_errors = []
         self._error_msgs = []
@@ -38,6 +39,7 @@ class ThreadDownloader(BaseDownloader):
         self.s_worker_complete.connect(
             self._worker_complete, QtCore.Qt.QueuedConnection
         )
+        self.timeout_update_timer.timeout.connect(self._stop_download)
 
     def start(self):
         """
@@ -45,7 +47,8 @@ class ThreadDownloader(BaseDownloader):
         """
         self._workers.clear()
         self.count_completed_workers = 0
-        self.f_stop_download = False
+        self.f_cancel_download = False
+        self.f_timeout_update = False
 
         self.count_urls = sum(
             map(lambda i: len(i['urls']), self.target_urls.data.values())
@@ -71,7 +74,7 @@ class ThreadDownloader(BaseDownloader):
         self._run()
 
     def _run(self):
-        if self.f_stop_download:
+        if self.f_cancel_download:
             # Если обновление отменили на моменте инициализации загрузчика
             # то предотвращаем создание воркеров и т д
             return
@@ -97,6 +100,10 @@ class ThreadDownloader(BaseDownloader):
             worker.start()
             self._workers.append(worker)
 
+        self.timeout_update_timer.start(
+            self.conf_program['thread_downloader']['timeout']
+        )
+
     def _worker_complete(self, urls_errors: list, error_msgs: list,
                          downloaded_pages: dict):
         """
@@ -112,20 +119,41 @@ class ThreadDownloader(BaseDownloader):
         self._error_msgs.extend(error_msgs)
 
         if (self.count_completed_workers == len(self._workers)
-                and self.f_stop_download is False):
+                and self.f_cancel_download is False):
+
+            state = UpgradeState.OK
+            if self.f_timeout_update:
+                message = ('Первышено время обновления. Получены данные только'
+                           ' с части сайтов')
+                state = UpgradeState.WARNING
+                self._error_msgs.append(message)
+                self._logger.error(message)
+
+            self.timeout_update_timer.stop()
+
             self.s_download_complete.emit(
-                UpgradeState.OK, self._error_msgs, self._urls_errors,
+                state, self._error_msgs, self._urls_errors,
                 self._downloaded_pages
             )
+
+    def _stop_download(self):
+        self.f_timeout_update = True
+
+        for i in self._workers:
+            i.f_timeout_update = True
+
+        self.timeout_update_timer.stop()
 
     def cancel_download(self):
         """
         Отменяет загрузку
         """
-        self.f_stop_download = True
+        self.f_cancel_download = True
 
         for i in self._workers:
-            i.f_stop_download = True
+            i.f_cancel_download = True
+
+        self.timeout_update_timer.stop()
 
         self.s_download_complete.emit(
             UpgradeState.CANCELLED,
@@ -135,7 +163,6 @@ class ThreadDownloader(BaseDownloader):
     def clear(self):
         self._error_msgs.clear()
         self._urls_errors.clear()
-        self._workers.clear()
         self._downloaded_pages.clear()
 
 
@@ -152,12 +179,13 @@ class Worker(QtCore.QThread):
             'check_internet_access_url'
         ]
         self._use_proxy = conf_program['downloader']['use_proxy']
-        self.pac_url = conf_program['downloader']['pac_file']
+        self._pac_url = conf_program['downloader']['pac_file']
         self._session = requests.Session()
         self.s_worker_complete = s_worker_complete
         self._logger = logging.getLogger('serial-notifier')
 
-        self.f_stop_download = False
+        self.f_cancel_download = False
+        self.f_timeout_update = False
         self._error_msgs = []
         self._urls_errors = []
         self._downloaded_pages = {}
@@ -168,10 +196,10 @@ class Worker(QtCore.QThread):
 
         domain = "{0.scheme}://{0.netloc}/".format(urlsplit(url))
         try:
-            proxy = gopac.find_proxy(self.pac_url, domain)
+            proxy = gopac.find_proxy(self._pac_url, domain)
         except (ValueError, ErrorDecodeOutput, GoPacException) as e:
             self._session.proxies = {}
-            self._error_msgs.append(f'Не удалось получить прокси для: {url}')
+            self._urls_errors.append(f'Не удалось получить прокси для: {url}')
             self._logger.error(f'Не удалось получить прокси для {url}', e)
         else:
             self._session.proxies = proxy
@@ -191,6 +219,8 @@ class Worker(QtCore.QThread):
             return self._session.get(
                 url, timeout=5, hooks={'response': self.terminate_download}
             )
+        except (DownloadCancel, TimeoutUpdate):
+            raise
         except requests.exceptions.ConnectionError:
             self.clear_proxy_cache()
             message = f'Ошибка при подключении к: {url}'
@@ -221,7 +251,12 @@ class Worker(QtCore.QThread):
 
             try:
                 html = self.fetch(url)
-            except WorkerTerminate:
+            except DownloadCancel:
+                return
+            except TimeoutUpdate:
+                self.s_worker_complete.emit(
+                    self._urls_errors, self._error_msgs, self._downloaded_pages
+                )
                 return
 
             if html is None:
@@ -241,13 +276,22 @@ class Worker(QtCore.QThread):
         """
         Прерывает скачивание
         """
-        if self.f_stop_download:
-            raise WorkerTerminate()
+        if self.f_cancel_download:
+            raise DownloadCancel()
+        if self.f_timeout_update:
+            raise TimeoutUpdate()
 
 
-class WorkerTerminate(Exception):
+class DownloadCancel(Exception):
     """
-    Исключение показывающие, что необходимо завершить работу потока
+    Исключение сообщающие, что загрузку необходимо отметить
+    """
+    pass
+
+
+class TimeoutUpdate(Exception):
+    """
+    Исключение сообщающие, что загрузку необходимо прервать
     """
     pass
 

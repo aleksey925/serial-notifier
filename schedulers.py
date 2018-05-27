@@ -40,6 +40,7 @@ class UpgradesScheduler(QtCore.QTimer):
         self.conf_program: ConfigsProgram = DIServises.conf_program()
 
         # Храним состояние загрузки
+        self.downloader_state: UpgradeState = None
         self.error_msgs: list = []
         self.urls_errors: list = []
 
@@ -97,6 +98,7 @@ class UpgradesScheduler(QtCore.QTimer):
         """
         self.error_msgs = error_msgs
         self.urls_errors = urls_errors
+        self.downloader_state = status
         if status in (UpgradeState.CANCELLED, UpgradeState.ERROR):
             self.upgrade_db_complete(status, [], {})
         else:
@@ -121,10 +123,13 @@ class UpgradesScheduler(QtCore.QTimer):
                             serials_with_updates: dict):
         """
         :param status Указывает успешно или нет завершилась операция обновления
-         базы данных
+        базы данных
         :param error_msgs сообщения об ошибках
         :param serials_with_updates обновившиеся сериалы
         """
+        if status < self.downloader_state:
+            status = self.downloader_state
+
         type_run = self.flag_progress.get()
         self.error_msgs.extend(error_msgs)
         self.s_upgrade_complete.emit(

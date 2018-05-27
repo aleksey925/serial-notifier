@@ -111,23 +111,28 @@ class ConfigsProgram(BaseConfigReader):
                 'check_internet_access_url': 'http://ya.ru'
             },
             'async_downloader': {
-                'timeout_update': '100'
+                'timeout': '2'
             },
             'thread_downloader': {
+                'timeout': '2',
                 'thread_count': '10'
             }
         }
         self.converter = {
             'general': {
-                'refresh_interval': lambda i: int(i) * 60000,
+                # конвертируем минуты в миллисекунды
+                'refresh_interval': lambda i: float(i) * 60000,
             },
             'downloader': {
                 'use_proxy': lambda i: bool(i)
             },
             'async_downloader': {
-                'timeout_update': lambda i: int(i),
+                # конвертируем минуты в секунды
+                'timeout': lambda i: float(i) * 60,
             },
             'thread_downloader': {
+                # конвертируем минуты в миллисекунды
+                'timeout': lambda i: float(i) * 60000,
                 'thread_count': lambda i: int(i)
             }
         }
