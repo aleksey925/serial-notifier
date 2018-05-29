@@ -100,6 +100,8 @@ class ConfigsProgram(BaseConfigReader):
     def __init__(self, base_dir, conf_name='setting.conf'):
         super().__init__(base_dir, conf_name)
 
+        self.strtobool = {'true': True, 'false': False, '1': True, '0': False}
+
         self.default_settings = {
             'general': {
                 'refresh_interval': '10',
@@ -124,7 +126,7 @@ class ConfigsProgram(BaseConfigReader):
                 'refresh_interval': lambda i: float(i) * 60000,
             },
             'downloader': {
-                'use_proxy': lambda i: bool(i)
+                'use_proxy': lambda i: self.strtobool.get(i.lower(), False)
             },
             'async_downloader': {
                 # конвертируем минуты в секунды

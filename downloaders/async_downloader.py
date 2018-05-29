@@ -1,17 +1,19 @@
 import asyncio
 import logging
 import concurrent.futures
+from urllib.parse import urlsplit
 
 import aiohttp
 import async_timeout
 from PyQt5 import QtCore
+from gopac import gopac
+from gopac.exceptions import ErrorDecodeOutput, GoPacException
 
 from config_readers import SerialsUrls, ConfigsProgram
 from downloaders.base_downloader import BaseDownloader
 from upgrade_state import UpgradeState
 
 
-# todo добавить поддержку прокси
 class AsyncDownloader(BaseDownloader):
     """
     Асинхронных загрузчик данных с web страниц основанный на коррутинах
@@ -19,36 +21,74 @@ class AsyncDownloader(BaseDownloader):
     def __init__(self):
         super().__init__()
         self._logger = logging.getLogger('serial-notifier')
+        self._use_proxy = self.conf_program['downloader']['use_proxy']
+        self._pac_url = self.conf_program['downloader']['pac_file']
 
         self._gather_tasks = None
         self._downloaded_pages = {}
         self._urls_errors = []
 
-    async def _fetch(self, session, site_name, serial_name, url):
+    async def _get_proxy(self, url):
+        if not self._use_proxy:
+            return
+
+        domain = "{0.scheme}://{0.netloc}/".format(urlsplit(url))
         try:
-            async with session.get(url) as response:
-                page = await response.text()
-                self._downloaded_pages[site_name].append([serial_name, page])
-        except ValueError:
-            message = f'URL {url} имеет неправильный формат'
+            proxy = await asyncio.get_event_loop().run_in_executor(
+                None, gopac.find_proxy, self._pac_url, domain
+            )
+        except (ValueError, ErrorDecodeOutput, GoPacException):
+            message = f'Не удалось получить прокси для: {url}'
             self._urls_errors.append(message)
-            self._logger.error(message)
-        except aiohttp.ClientConnectionError:
-            message = f'Ошибка подключени к {url}'
-            self._urls_errors.append(message)
-            self._logger.error(message)
-        except Exception as e:
-            if isinstance(e, asyncio.CancelledError):
+            self._logger.error(message, exc_info=True)
+            return None
+        else:
+            return proxy.get('http', None)
+
+    def clear_proxy_cache(self):
+        if not self._use_proxy:
+            return
+
+        gopac.find_proxy.cache_clear()
+
+    async def _fetch(self, session, site_name, serial_name, url):
+        proxy = await self._get_proxy(url)
+        for i in range(2):
+            try:
+                async with session.get(url, proxy=proxy, allow_redirects=True) as response:
+                    page = await response.text()
+                    self._downloaded_pages[site_name].append([serial_name, page])
+                    return
+            except asyncio.CancelledError:
                 # Пробрасываем ошибку дальше, потому что она сообщает об отмене
                 # пользователем загрузки данных
                 raise
-            else:
-                self._urls_errors.append(
+            except ValueError:
+                self.clear_proxy_cache()
+                message = f'URL {url} имеет неправильный формат'
+                self._urls_errors.append(message)
+                self._logger.error(message)
+            except aiohttp.ClientConnectionError:
+                self.clear_proxy_cache()
+                message = f'Ошибка подключени к {url}'
+                self._urls_errors.append(message)
+                self._logger.error(message)
+            except Exception:
+                message = (
                     f'Возникла непредвиденная ошибка при подключении к {url}'
                 )
-                self._logger.error(f'{e.__class__.__name__} {url}')
+                self.clear_proxy_cache()
+                self._urls_errors.append(message)
+                self._logger.error(message, exc_info=True)
 
     async def _run(self):
+        self._logger.info(
+            'Запросы выполняются {}'.format(
+                'через прокси' if self._use_proxy else
+                'без использования прокси'
+            )
+        )
+
         tasks = []
 
         async with aiohttp.ClientSession() as session:

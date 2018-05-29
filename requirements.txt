@@ -8,5 +8,5 @@ lxml>=4.2.1
 PyQt5>=5.10.1
 sip>=4.19.8
 requests>=2.18.4
-gopac==0.0.1
+gopac==0.0.2
 serial-notifier-go-downloader==0.0.2

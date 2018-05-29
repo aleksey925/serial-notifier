@@ -88,7 +88,7 @@ class ThreadDownloader(BaseDownloader):
         self._logger.info(
             'Запросы выполняются {}'.format(
                 'через прокси' if self.conf_program['downloader']['use_proxy']
-                else 'на прямую'
+                else 'без использования прокси'
             )
         )
 
@@ -198,9 +198,10 @@ class Worker(QtCore.QThread):
         try:
             proxy = gopac.find_proxy(self._pac_url, domain)
         except (ValueError, ErrorDecodeOutput, GoPacException) as e:
+            message = f'Не удалось получить прокси для: {url}'
             self._session.proxies = {}
-            self._urls_errors.append(f'Не удалось получить прокси для: {url}')
-            self._logger.error(f'Не удалось получить прокси для {url}', e)
+            self._urls_errors.append(message)
+            self._logger.error(message, exc_info=True)
         else:
             self._session.proxies = proxy
 
@@ -230,7 +231,7 @@ class Worker(QtCore.QThread):
         except Exception as e:
             self.clear_proxy_cache()
             message = f'Непредвиденная ошибка при доступе к : {url}'
-            self._logger.error(message, e)
+            self._logger.error(message, exc_info=True)
             self._urls_errors.append(message)
             self.fetch(url, recursion_deep + 1)
 
