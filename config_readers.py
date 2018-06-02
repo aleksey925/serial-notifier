@@ -107,13 +107,14 @@ class ConfigsProgram(BaseConfigReader):
                 'refresh_interval': '10',
             },
             'downloader': {
-                'use_proxy': False,
+                'use_proxy': True,
                 'pac_file': 'https://antizapret.prostovpn.org/proxy.pac',
-                'target_downloader': 'thread_downloader',
+                'target_downloader': 'async_downloader',
                 'check_internet_access_url': 'http://ya.ru'
             },
             'async_downloader': {
-                'timeout': '2'
+                'timeout': '2',
+                'concurrent_requests_count': '100'
             },
             'thread_downloader': {
                 'timeout': '2',
@@ -131,6 +132,7 @@ class ConfigsProgram(BaseConfigReader):
             'async_downloader': {
                 # конвертируем минуты в секунды
                 'timeout': lambda i: float(i) * 60,
+                'concurrent_requests_count': lambda i: int(i)
             },
             'thread_downloader': {
                 # конвертируем минуты в миллисекунды

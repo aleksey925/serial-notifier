@@ -8,7 +8,7 @@ class AsyncHtmlParser(QtCore.QThread):
     """
     Запускает в отдельном потоке парсинг HTML старниц
     """
-    s_data_ready = QtCore.pyqtSignal(object, object, name='data_ready')
+    s_data_ready = QtCore.pyqtSignal(dict, dict, name='data_ready')
 
     def __init__(self, s_send_parser_task):
         super(AsyncHtmlParser, self).__init__()

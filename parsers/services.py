@@ -7,6 +7,7 @@
 import re
 import logging
 import traceback
+from typing import Iterable, Union
 
 import lxml.html
 
@@ -110,14 +111,13 @@ parsers = {
 }
 
 
-def parse_serial_page(serial_raw_data: dict):
+def parse_serial_page(serial_raw_data: dict) -> Iterable[Union[dict, dict]]:
     """
     Вытаскивает с html страниц данные о последней вышешей серии
-    :argument serial_raw_data HTML страницы с информацией о сериалах
-    :argument logger логгер
+    :param serial_raw_data HTML страницы с информацией о сериалах
     """
     result = {}
-    errors = []
+    errors = {}
     logger = logging.getLogger('serial-notifier')
 
     for site_name, pages in serial_raw_data.items():
@@ -127,7 +127,7 @@ def parse_serial_page(serial_raw_data: dict):
                 res = parsers[site_name](html_page)
             except Exception:
                 message = f'Ошибка парсинга. {site_name}: {serial_name}'
-                errors.append(message)
+                errors[f'{site_name}_{serial_name}'] = message
                 logger.error(message + f'\n{traceback.format_exc()}')
             else:
                 if res:

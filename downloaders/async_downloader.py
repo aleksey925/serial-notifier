@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import concurrent.futures
 from urllib.parse import urlsplit
 
@@ -20,16 +19,14 @@ class AsyncDownloader(BaseDownloader):
     """
     def __init__(self):
         super().__init__()
-        self._logger = logging.getLogger('serial-notifier')
         self._use_proxy = self.conf_program['downloader']['use_proxy']
         self._pac_url = self.conf_program['downloader']['pac_file']
 
+        self.semaphore: asyncio.BoundedSemaphore = None
         self._gather_tasks = None
-        self._downloaded_pages = {}
-        self._urls_errors = []
 
-    async def _get_proxy(self, url):
-        if not self._use_proxy:
+    async def _get_proxy(self, url, site_name, serial_name):
+        if not self._use_proxy or not self._pac_url:
             return
 
         domain = "{0.scheme}://{0.netloc}/".format(urlsplit(url))
@@ -39,7 +36,9 @@ class AsyncDownloader(BaseDownloader):
             )
         except (ValueError, ErrorDecodeOutput, GoPacException):
             message = f'Не удалось получить прокси для: {url}'
-            self._urls_errors.append(message)
+            self._urls_errors.setdefault(
+                f'{site_name}_{serial_name}', []
+            ).append(message)
             self._logger.error(message, exc_info=True)
             return None
         else:
@@ -52,12 +51,14 @@ class AsyncDownloader(BaseDownloader):
         gopac.find_proxy.cache_clear()
 
     async def _fetch(self, session, site_name, serial_name, url):
-        proxy = await self._get_proxy(url)
+        proxy = await self._get_proxy(url, site_name, serial_name)
         for i in range(2):
             try:
-                async with session.get(url, proxy=proxy, allow_redirects=True) as response:
+                async with self.semaphore, session.get(
+                        url, proxy=proxy, allow_redirects=True) as response:
                     page = await response.text()
-                    self._downloaded_pages[site_name].append([serial_name, page])
+                    self._downloaded_pages[site_name].append(
+                        [serial_name, page])
                     return
             except asyncio.CancelledError:
                 # Пробрасываем ошибку дальше, потому что она сообщает об отмене
@@ -66,29 +67,28 @@ class AsyncDownloader(BaseDownloader):
             except ValueError:
                 self.clear_proxy_cache()
                 message = f'URL {url} имеет неправильный формат'
-                self._urls_errors.append(message)
+                self._urls_errors.setdefault(
+                    f'{site_name}_{serial_name}', []
+                ).append(message)
                 self._logger.error(message)
             except aiohttp.ClientConnectionError:
                 self.clear_proxy_cache()
                 message = f'Ошибка подключени к {url}'
-                self._urls_errors.append(message)
+                self._urls_errors.setdefault(
+                    f'{site_name}_{serial_name}', []
+                ).append(message)
                 self._logger.error(message)
             except Exception:
                 message = (
                     f'Возникла непредвиденная ошибка при подключении к {url}'
                 )
                 self.clear_proxy_cache()
-                self._urls_errors.append(message)
+                self._urls_errors.setdefault(
+                    f'{site_name}_{serial_name}', []
+                ).append(message)
                 self._logger.error(message, exc_info=True)
 
-    async def _run(self):
-        self._logger.info(
-            'Запросы выполняются {}'.format(
-                'через прокси' if self._use_proxy else
-                'без использования прокси'
-            )
-        )
-
+    async def _wrapper_for_tasks(self):
         tasks = []
 
         async with aiohttp.ClientSession() as session:
@@ -98,8 +98,10 @@ class AsyncDownloader(BaseDownloader):
 
                 self._downloaded_pages[site_name] = []
                 for i in site_data['urls']:
-                    tasks.append(asyncio.ensure_future(
-                        self._fetch(session, site_name, *i))
+                    tasks.append(
+                        asyncio.ensure_future(
+                            self._fetch(session, site_name, *i)
+                        )
                     )
 
             if not tasks:
@@ -128,7 +130,7 @@ class AsyncDownloader(BaseDownloader):
             except concurrent.futures.CancelledError:
                 self.s_download_complete.emit(
                     UpgradeState.CANCELLED,
-                    ['Обновленние отменено пользователем'], [], {}
+                    ['Обновленние отменено пользователем'], {}, {}
                 )
                 return
 
@@ -136,35 +138,42 @@ class AsyncDownloader(BaseDownloader):
                 UpgradeState.OK, [], self._urls_errors, self._downloaded_pages
             )
 
-    def clear(self):
-        """
-        Очищается структуры данных используемые downloader`ом
-        """
-        self._downloaded_pages.clear()
-        self._urls_errors.clear()
-        self._gather_tasks = None
+    def _before_start(self):
+        self.semaphore = asyncio.BoundedSemaphore(
+            self.conf_program['async_downloader']['concurrent_requests_count']
+        )
 
-    def start(self):
-        """
-        Запускает асинхронное скачивание информации о новых сериях
-        """
-        self.get_internet_status()
-
-    def check_internet_access(self, is_available: bool):
-        if not is_available:
+    def _start(self, internet_available: bool):
+        if not internet_available:
             self.s_download_complete.emit(
                 UpgradeState.ERROR, ['Отстуствует соединение с интернетом'],
-                [], {}
+                {}, {}
             )
             return
 
-        asyncio.ensure_future(self._run())
+        self._logger.info(
+            'Запросы выполняются {}'.format(
+                'через прокси' if self._use_proxy else
+                'без использования прокси'
+            )
+        )
+
+        asyncio.ensure_future(self._wrapper_for_tasks())
 
     def cancel_download(self):
-        """
-        Отменяет загрузку
-        """
-        self._gather_tasks.cancel()
+        self._internet_status_checker.cancel()
+        if self._gather_tasks is not None:
+            self._gather_tasks.cancel()
+        else:
+            self.s_download_complete.emit(
+                UpgradeState.CANCELLED,
+                ['Обновленние отменено пользователем'], {}, {}
+            )
+
+    def clear(self):
+        self._downloaded_pages.clear()
+        self._urls_errors.clear()
+        self._gather_tasks = None
 
 
 if __name__ == '__main__':

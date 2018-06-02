@@ -27,7 +27,7 @@ class UpgradesScheduler(QtCore.QTimer):
     # Отправляет данные для парсинга
     s_send_data_parser = pyqtSignal(dict, name='send_data_parser')
 
-    s_upgrade_complete = pyqtSignal(UpgradeState, list, list, dict, str,
+    s_upgrade_complete = pyqtSignal(UpgradeState, list, dict, dict, str,
                                     name='upgrade_complete')
 
     def __init__(self):
@@ -42,7 +42,7 @@ class UpgradesScheduler(QtCore.QTimer):
         # Храним состояние загрузки
         self.downloader_state: UpgradeState = None
         self.error_msgs: list = []
-        self.urls_errors: list = []
+        self.urls_errors: dict = {}
 
         self.downloader = downloader.get(
             self.conf_program.data['downloader']['target_downloader'],
@@ -83,10 +83,10 @@ class UpgradesScheduler(QtCore.QTimer):
             self.urls.read()
             self.conf_program.read()
 
-            self.downloader.start()
+            self.downloader.start_download()
 
     def download_complete(self, status: UpgradeState, error_msgs: list,
-                          urls_errors: list, downloaded_pages: dict):
+                          urls_errors: dict, downloaded_pages: dict):
         """
         Вызывается после того как загрузка была завершена и инициирует парсинг
         html страниц
@@ -104,7 +104,7 @@ class UpgradesScheduler(QtCore.QTimer):
         else:
             self.s_send_data_parser.emit(downloaded_pages)
 
-    def parse_complete(self, serials_data: dict, errors: list):
+    def parse_complete(self, serials_data: dict, errors: dict):
         """
         Получает данные извлеченные из скаченых HTML старниц отпрвляет их
         для обновления БД
@@ -114,7 +114,9 @@ class UpgradesScheduler(QtCore.QTimer):
         {'filin.tv': {'Теория Большого взрыва': {'Серия': [17], 'Сезон': 1},}
         :param errors список сериалов страницы с которыми не удалось распарсить
         """
-        self.urls_errors.extend(errors)
+        for serial, err_msg in errors.items():
+            self.urls_errors.setdefault(serial, []).extend(err_msg)
+
         self.db_manager.s_send_db_task.emit(
             lambda: self.db_manager.upgrade_db(serials_data)
         )

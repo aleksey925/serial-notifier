@@ -540,7 +540,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.upgrades_scheduler.downloader.cancel_download()
 
     def upgrade_complete(self, status: UpgradeState, error_msgs: list,
-                         urls_errors: list, serials_with_updates: dict,
+                         urls_errors: dict, serials_with_updates: dict,
                          type_run: str):
         """
         Вызывается после завершения обновления БД, чтобы включить отключеные
