@@ -138,7 +138,7 @@ class NoticeFile(NoticePluginsContainer, BaseNoticePlugin):
 
     def send_notice(self, data, warning,
                     counter_action: UpdateCounterAction = None):
-        with open(self.conf_program.data['general']['path'], 'a') as out:
+        with open(self.conf_program['general']['path'], 'a') as out:
             out.write(
                 f'{time.strftime("(%Y-%m-%d) (%H:%M:%S)")} '
                 f'{self.build_notice(data)}\n\n\n'

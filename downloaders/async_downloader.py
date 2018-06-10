@@ -19,25 +19,27 @@ class AsyncDownloader(BaseDownloader):
     """
     def __init__(self):
         super().__init__()
-        self._use_proxy = self.conf_program['downloader']['use_proxy']
-        self._pac_url = self.conf_program['downloader']['pac_file']
 
-        self.semaphore: asyncio.BoundedSemaphore = None
+        self.console_encoding = self._conf_program['gopac']['console_encoding']
+        self._use_proxy = self._conf_program['downloader']['use_proxy']
+
+        self._semaphore: asyncio.BoundedSemaphore = None
         self._gather_tasks = None
 
     async def _get_proxy(self, url, site_name, serial_name):
-        if not self._use_proxy or not self._pac_url:
+        if not self._use_proxy or not self._downloaded_pac_file:
             return
 
         domain = "{0.scheme}://{0.netloc}/".format(urlsplit(url))
         try:
             proxy = await asyncio.get_event_loop().run_in_executor(
-                None, gopac.find_proxy, self._pac_url, domain
+                None, gopac.find_proxy, self._downloaded_pac_file, domain,
+                self.console_encoding
             )
         except (ValueError, ErrorDecodeOutput, GoPacException):
             message = f'Не удалось получить прокси для: {url}'
             self._urls_errors.setdefault(
-                f'{site_name}_{serial_name}', []
+                f'{site_name}_{serial_name}', list()
             ).append(message)
             self._logger.error(message, exc_info=True)
             return None
@@ -54,7 +56,7 @@ class AsyncDownloader(BaseDownloader):
         proxy = await self._get_proxy(url, site_name, serial_name)
         for i in range(2):
             try:
-                async with self.semaphore, session.get(
+                async with self._semaphore, session.get(
                         url, proxy=proxy, allow_redirects=True) as response:
                     page = await response.text()
                     self._downloaded_pages[site_name].append(
@@ -68,14 +70,14 @@ class AsyncDownloader(BaseDownloader):
                 self.clear_proxy_cache()
                 message = f'URL {url} имеет неправильный формат'
                 self._urls_errors.setdefault(
-                    f'{site_name}_{serial_name}', []
+                    f'{site_name}_{serial_name}', list()
                 ).append(message)
                 self._logger.error(message)
             except aiohttp.ClientConnectionError:
                 self.clear_proxy_cache()
                 message = f'Ошибка подключени к {url}'
                 self._urls_errors.setdefault(
-                    f'{site_name}_{serial_name}', []
+                    f'{site_name}_{serial_name}', list()
                 ).append(message)
                 self._logger.error(message)
             except Exception:
@@ -84,7 +86,7 @@ class AsyncDownloader(BaseDownloader):
                 )
                 self.clear_proxy_cache()
                 self._urls_errors.setdefault(
-                    f'{site_name}_{serial_name}', []
+                    f'{site_name}_{serial_name}', list()
                 ).append(message)
                 self._logger.error(message, exc_info=True)
 
@@ -92,7 +94,7 @@ class AsyncDownloader(BaseDownloader):
         tasks = []
 
         async with aiohttp.ClientSession() as session:
-            for site_name, site_data in self.target_urls.data.items():
+            for site_name, site_data in self._target_urls.items():
                 if len(site_data['urls']) == 0:
                     continue
 
@@ -114,7 +116,7 @@ class AsyncDownloader(BaseDownloader):
 
             try:
                 with async_timeout.timeout(
-                        self.conf_program['async_downloader']['timeout'],
+                        self._conf_program['async_downloader']['timeout'],
                         loop=session.loop):
                     self._gather_tasks = asyncio.gather(*tasks)
                     await self._gather_tasks
@@ -125,7 +127,7 @@ class AsyncDownloader(BaseDownloader):
                     UpgradeState.WARNING, [message], self._urls_errors,
                     self._downloaded_pages
                 )
-                self._logger.error(message)
+                self._logger.warning(message)
                 return
             except concurrent.futures.CancelledError:
                 self.s_download_complete.emit(
@@ -139,11 +141,11 @@ class AsyncDownloader(BaseDownloader):
             )
 
     def _before_start(self):
-        self.semaphore = asyncio.BoundedSemaphore(
-            self.conf_program['async_downloader']['concurrent_requests_count']
+        self._semaphore = asyncio.BoundedSemaphore(
+            self._conf_program['async_downloader']['concurrent_requests_count']
         )
 
-    def _start(self, internet_available: bool):
+    def _start(self, internet_available: bool, downloaded_pac_file: str):
         if not internet_available:
             self.s_download_complete.emit(
                 UpgradeState.ERROR, ['Отстуствует соединение с интернетом'],
@@ -151,17 +153,17 @@ class AsyncDownloader(BaseDownloader):
             )
             return
 
+        self._downloaded_pac_file = downloaded_pac_file
         self._logger.info(
-            'Запросы выполняются {}'.format(
-                'через прокси' if self._use_proxy else
-                'без использования прокси'
+            'Проксирвание запросов {}'.format(
+                'ВКЛЮЧЕНО' if self._use_proxy else 'ВЫКЛЮЧЕНО'
             )
         )
 
         asyncio.ensure_future(self._wrapper_for_tasks())
 
     def cancel_download(self):
-        self._internet_status_checker.cancel()
+        self._downloader_initializer.cancel()
         if self._gather_tasks is not None:
             self._gather_tasks.cancel()
         else:
@@ -199,14 +201,20 @@ if __name__ == '__main__':
                 self.download_complete, QtCore.Qt.QueuedConnection
             )
 
-            self.downloader.start()
+            self.downloader.start_download()
 
         def download_complete(self, status: UpgradeState, error_msgs: list,
                               urls_errors: list, downloaded_pages: dict):
             print('status:', status)
             print('error_msgs:', error_msgs)
             print('urls_errors:', urls_errors)
-            print('downloaded_pages:', downloaded_pages)
+            print(
+                'downloaded_pages:',
+                ', '.join(
+                    f'{site} - {i[0]}' for site, s in downloaded_pages.items()
+                    for i in s
+                )
+            )
             exit(0)
 
 

@@ -127,7 +127,7 @@ def parse_serial_page(serial_raw_data: dict) -> Iterable[Union[dict, dict]]:
                 res = parsers[site_name](html_page)
             except Exception:
                 message = f'Ошибка парсинга. {site_name}: {serial_name}'
-                errors[f'{site_name}_{serial_name}'] = message
+                errors[f'{site_name}_{serial_name}'] = [message]
                 logger.error(message + f'\n{traceback.format_exc()}')
             else:
                 if res:

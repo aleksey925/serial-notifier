@@ -1,13 +1,15 @@
 import logging
 from abc import ABCMeta, abstractmethod
 
+import gopac
+import gopac.exceptions
 import requests
 import dependency_injector.containers as cnt
 import dependency_injector.providers as prv
 from PyQt5 import QtCore
 from sip import wrappertype
 
-from config_readers import SerialsUrls
+from config_readers import SerialsUrls, ConfigsProgram
 from upgrade_state import UpgradeState
 
 
@@ -32,16 +34,16 @@ class BaseDownloader(QtCore.QObject, metaclass=BaseDownloaderMetaClass):
     def __init__(self):
         super().__init__()
 
-        self.target_urls: SerialsUrls = DIServises.serials_urls()
-        self.conf_program: dict = DIServises.conf_program().data
-        self._internet_status_checker = InternetStatusChecker()
-        self._logger = logging.getLogger('serial-notifier')
-
         self._urls_errors = {}
         self._error_msgs = []
         self._downloaded_pages = {}
+        self._downloaded_pac_file: str = ''
+        self._target_urls: SerialsUrls = DIServises.serials_urls()
+        self._conf_program: ConfigsProgram = DIServises.conf_program()
+        self._downloader_initializer = DownloaderInitializer()
+        self._logger = logging.getLogger('serial-notifier')
 
-        self._internet_status_checker.s_internet_state.connect(
+        self._downloader_initializer.s_init_complete.connect(
             self._start, QtCore.Qt.QueuedConnection
         )
 
@@ -50,17 +52,18 @@ class BaseDownloader(QtCore.QObject, metaclass=BaseDownloaderMetaClass):
         Запускает загрузку информации о новых сериях
         """
         self._before_start()
-        self._internet_status_checker.check()
+        self._downloader_initializer.run_init()
 
     def _before_start(self):
         pass
 
     @abstractmethod
-    def _start(self, internet_available: bool):
+    def _start(self, internet_available: bool, downloaded_pac_file: str):
         """
         Запускает скачивание если интернет доступен
         :param internet_available: логический параметр отражающий доступность
         интернета
+        :param downloaded_pac_file: путь к скачанному pac файлу
         """
         raise NotImplementedError()
 
@@ -79,38 +82,62 @@ class BaseDownloader(QtCore.QObject, metaclass=BaseDownloaderMetaClass):
         raise NotImplementedError()
 
 
-class InternetStatusChecker(QtCore.QThread):
+class DownloaderInitializer(QtCore.QThread):
 
-    s_internet_state = QtCore.pyqtSignal(bool, name='internet_state')
+    s_init_complete = QtCore.pyqtSignal(bool, str, name='init_complete')
 
     def __init__(self):
         super().__init__()
         self.f_stop = False
-
-    def check(self):
-        self.start()
+        self.logger = logging.getLogger('serial-notifier')
+        self.conf_program = DIServises.conf_program()
 
     def run(self):
         self.f_stop = False
 
         try:
             requests.get(
-                DIServises.conf_program().data['downloader'][
-                    'check_internet_access_url'
-                ],
+                self.conf_program['downloader']['check_internet_access_url'],
                 timeout=15,
                 hooks={'response': self._terminate_check}
             )
-            self.s_internet_state.emit(True)
         except DownloadCancel:
+            self.logger.debug(
+                'Загрузка отменена на этапе проверки доступности интернета'
+            )
             return
         except Exception:
-            logging.getLogger('serial-notifier').error(
-                'Отстуствует доступ в интернет'
-            )
-            self.s_internet_state.emit(False)
+            self.logger.error('Отстуствует доступ в интернет')
+            self.s_init_complete.emit(False, '')
+            return
+
+        downloaded_pac_file = ''
+        if self.conf_program['downloader']['use_proxy']:
+            try:
+                downloaded_pac_file = gopac.download_pac_file(
+                    self.conf_program['downloader']['pac_file']
+                )
+            except gopac.exceptions.DownloadCancel:
+                self.logger.debug(
+                    'Загрузка отменена на этапе загрузки PAC файла'
+                )
+                return
+            except gopac.exceptions.SavePacFileException:
+                self.logger.error(
+                    'Возникла ошибка при сохранении pac файла', exc_info=True
+                )
+            except Exception:
+                self.logger.error(
+                    'Ошибка при получении pac файла', exc_info=True
+                )
+
+        self.s_init_complete.emit(True, downloaded_pac_file)
+
+    def run_init(self):
+        self.start()
 
     def cancel(self):
+        gopac.terminate_download_pac_file()
         self.f_stop = True
 
     def _terminate_check(self, *args, **kwargs):
@@ -121,12 +148,5 @@ class InternetStatusChecker(QtCore.QThread):
 class DownloadCancel(Exception):
     """
     Исключение сообщающие, что загрузку необходимо отметить
-    """
-    pass
-
-
-class TimeoutUpdate(Exception):
-    """
-    Исключение сообщающие, что загрузку необходимо прервать
     """
     pass

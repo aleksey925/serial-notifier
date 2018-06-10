@@ -1,65 +1,91 @@
 import re
+import codecs
 import logging
-import traceback
 import configparser
-from abc import ABC, abstractmethod
 from os.path import join, exists
 
 
-class BaseConfigReader(ABC):
+class BaseConfigReader:
     """
     Базовый класс для всех парсеров конфигурационных файлов
     """
     def __init__(self, base_dir, conf_name):
         self._logger = logging.getLogger('serial-notifier')
-        self._config = configparser.ConfigParser()
+        self._cfg_parser = configparser.ConfigParser()
 
-        self.data = {}
+        self._data = {}
 
-        self.base_dir = base_dir
-        self.conf_name = conf_name
-        self.path = join(base_dir, conf_name)
-        self.default_settings = {}
+        self._base_dir = base_dir
+        self._conf_name = conf_name
+        self._path = join(base_dir, conf_name)
+        self._default_settings = {}
 
     def init(self):
         """
         Проверяет наличие конфига и если его нет, создает конфиг с
         настройками по умолчанию
         """
-        if not exists(self.path):
-            self.write(self.default_settings)
+        if not exists(self._path):
+            self.write(self._default_settings)
 
     def read(self):
-        self.data.clear()
+        self._data.clear()
 
         try:
-            self._config.read(self.path, encoding='utf8')
+            self._cfg_parser.read(self._path, encoding='utf8')
         except Exception:
-            self._logger.critical((
-                f'Ошибка при парсинге {self.conf_name}\n'
-                f'{traceback.format_exc()}'
-            ))
+            self._logger.critical(
+                f'Ошибка при парсинге конфигурационного файла '
+                f'"{self._conf_name}"', exc_info=True
+            )
             return 'error'
         else:
-            for section_name in self._config.sections():
-                self.data[section_name] = {}
-                for option in self._config[section_name].items():
-                    self.data[section_name][option[0]] = option[1]
+            for section_name in self._cfg_parser.sections():
+                self._data[section_name] = {}
+                for option in self._cfg_parser[section_name].items():
+                    self._data[section_name][option[0]] = option[1]
 
     def write(self, setting: dict=None):
         if setting:
-            self._config.update(setting)
-            self.data.update(setting)
+            self._cfg_parser.update(setting)
+            self._data.update(setting)
 
-        with open(self.path, 'w') as out:
-            self._config.write(out)
+        with open(self._path, 'w') as out:
+            self._cfg_parser.write(out)
+
+    def get_config_data(self):
+        return self._data
+
+    def get(self, key, default=None):
+        return self._data.get(key, default)
+
+    def keys(self):
+        return self._data.keys()
+
+    def values(self):
+        return self._data.values()
+
+    def items(self):
+        return self._data.items()
+
+    def __getitem__(self, key):
+        return self._data[key]
+
+    def __setitem__(self, key, value):
+        self._data[key] = value
+
+    def __str__(self):
+        return str(self._data)
+
+    def __repr__(self):
+        return repr(self._data)
 
 
 class SerialsUrls(BaseConfigReader):
     def __init__(self, base_dir, conf_name='sites.conf'):
         super().__init__(base_dir, conf_name)
 
-        self.default_settings = {
+        self._default_settings = {
             'filin.tv': {'urls': '<Название сериала>;<url>', 'encoding': ''},
             'filmix.me': {'urls': '<Название сериала>;<url>', 'encoding': ''}
         }
@@ -72,7 +98,7 @@ class SerialsUrls(BaseConfigReader):
             return
 
         data = {}
-        for section, options in self.data.items():
+        for section, options in self._data.items():
             data[section] = {}
             data[section]['urls'] = []
             for value in options['urls'].split('\n'):
@@ -80,16 +106,16 @@ class SerialsUrls(BaseConfigReader):
                     data[section]['urls'].append(value.split(';'))
             data[section]['encoding'] = options['encoding']
 
-        self.data = data
+        self._data = data
 
     def remove(self, serial_name):
         """
         Удаляет сериал из списка отслеживаемых
         :param serial_name: название сериала
         """
-        for section_name, section in self._config.items():
+        for section_name, section in self._cfg_parser.items():
             for option, value in section.items():
-                self._config[section_name][option] = re.sub(
+                self._cfg_parser[section_name][option] = re.sub(
                     '{};.*\n?'.format(serial_name), '', value
                 )
         self.write()
@@ -100,9 +126,9 @@ class ConfigsProgram(BaseConfigReader):
     def __init__(self, base_dir, conf_name='setting.conf'):
         super().__init__(base_dir, conf_name)
 
-        self.strtobool = {'true': True, 'false': False, '1': True, '0': False}
+        self._strtobool = {'true': True, 'false': False, '1': True, '0': False}
 
-        self.default_settings = {
+        self._default_settings = {
             'general': {
                 'refresh_interval': '10',
             },
@@ -119,6 +145,9 @@ class ConfigsProgram(BaseConfigReader):
             'thread_downloader': {
                 'timeout': '2',
                 'thread_count': '10'
+            },
+            'gopac': {
+                'console_encoding': ''
             }
         }
         self.converter = {
@@ -127,7 +156,7 @@ class ConfigsProgram(BaseConfigReader):
                 'refresh_interval': lambda i: float(i) * 60000,
             },
             'downloader': {
-                'use_proxy': lambda i: self.strtobool.get(i.lower(), False)
+                'use_proxy': self._str_to_bool
             },
             'async_downloader': {
                 # конвертируем минуты в секунды
@@ -138,10 +167,31 @@ class ConfigsProgram(BaseConfigReader):
                 # конвертируем минуты в миллисекунды
                 'timeout': lambda i: float(i) * 60000,
                 'thread_count': lambda i: int(i)
+            },
+            'gopac': {
+                'console_encoding': self._lookup_encoding
             }
         }
         self.init()
         self.read()
+
+    @staticmethod
+    def _lookup_encoding(i):
+        if i == '':
+            return i
+
+        try:
+            codecs.lookup(i)
+        except LookupError:
+            raise
+
+        return i
+
+    def _str_to_bool(self, i):
+        value = self._strtobool.get(i.lower(), None)
+        if value is None:
+            raise ValueError('Ошибка при преобразовании str в bool')
+        return value
 
     def read(self):
         error = super().read()
@@ -150,14 +200,26 @@ class ConfigsProgram(BaseConfigReader):
 
         for section, options in self.converter.items():
             for option, func in options.items():
-                self.data[section][option] = func(self.data[section][option])
+                option_value = self._data[section][option]
+                try:
+                    self._data[section][option] = func(option_value)
+                except Exception:
+                    self._logger.error(
+                        f'Возникла ошибка при попытке конвертировать параметр '
+                        f'"{option} = {option_value}" из секции "{section}".'
+                        f'Будет применено значение по умолчанию.',
+                        exc_info=True
+                    )
+                    self._data[section][option] = (
+                        self._default_settings[section][option]
+                    )
 
 
 if __name__ == '__main__':
     from configs import base_dir
 
-    c = ConfigsProgram(base_dir)
-    print(c.data)
+    cp = ConfigsProgram(base_dir)
+    print(cp)
 
-    c1 = SerialsUrls(base_dir)
-    print(c1.data)
+    su = SerialsUrls(base_dir)
+    print(su)

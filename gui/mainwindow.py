@@ -425,8 +425,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.board_notices: BoardNotices = None
         self.filter_by_status = QtWidgets.QComboBox()
 
-        self.urls: SerialsUrls = None
-
         # Различные асинхронные обработчики
         self.db_manager: DbManager = None
         self.upgrades_scheduler: UpgradesScheduler = None
@@ -449,8 +447,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.board_notices = DIServises.board_notices()
         self.main_layout.addWidget(self.board_notices, 0, 2, 3, 2)
-
-        self.urls: SerialsUrls = DIServises.serials_urls()
 
         self.db_manager = DIServises.db_manager()
         self.db_manager.s_serials_extracted.connect(

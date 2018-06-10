@@ -52,13 +52,13 @@ class NoticePluginMount(type):
 
     def registration_plugin(cls):
         config_program = DIServises.conf_program()
-        if not config_program.data.get(cls.name, None):
+        if not config_program.get(cls.name, None):
             default_setting = {}
             default_setting.update(BaseNoticePlugin.default_setting)
             default_setting.update(cls.default_setting)
             config_program.write({cls.name: default_setting})
 
-        if config_program.data[cls.name]['enable'] == 'yes':
+        if config_program[cls.name]['enable'] == 'yes':
             cls.plugins[cls.name] = cls()
 
 

@@ -45,7 +45,7 @@ class UpgradesScheduler(QtCore.QTimer):
         self.urls_errors: dict = {}
 
         self.downloader = downloader.get(
-            self.conf_program.data['downloader']['target_downloader'],
+            self.conf_program['downloader']['target_downloader'],
             ThreadDownloader
         )()
         self.logger.info(
@@ -67,7 +67,7 @@ class UpgradesScheduler(QtCore.QTimer):
 
         # Запускаем таймер
         self.timeout.connect(lambda: self.run('timer'))
-        self.start(self.conf_program.data['general']['refresh_interval'])
+        self.start(self.conf_program['general']['refresh_interval'])
 
     def run(self, type_run):
         """
@@ -92,8 +92,9 @@ class UpgradesScheduler(QtCore.QTimer):
         html страниц
         :param status: статус обновления
         :param error_msgs: ошибок возникших при обновлении
-        :param urls_errors: описание проблем возниших при доступе к
-        определенному url
+        :param urls_errors: описание проблем возниших при обработке ссылок
+        Пример:
+        {'filin.tv_Вызов': ['ошибка 1'], 'filmix.me_Вызов': ['ошибка 1']}
         :param downloaded_pages: скачанные страницы
         """
         self.error_msgs = error_msgs
@@ -114,8 +115,8 @@ class UpgradesScheduler(QtCore.QTimer):
         {'filin.tv': {'Теория Большого взрыва': {'Серия': [17], 'Сезон': 1},}
         :param errors список сериалов страницы с которыми не удалось распарсить
         """
-        for serial, err_msg in errors.items():
-            self.urls_errors.setdefault(serial, []).extend(err_msg)
+        for serial, err_msgs in errors.items():
+            self.urls_errors.setdefault(serial, list()).extend(err_msgs)
 
         self.db_manager.s_send_db_task.emit(
             lambda: self.db_manager.upgrade_db(serials_data)

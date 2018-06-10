@@ -22,17 +22,16 @@ def init_logger(path):
         ('#%(levelname)-s, %(pathname)s, line %(lineno)d, [%(asctime)s]: '
          '%(message)s'), datefmt='%Y-%m-%d %H:%M:%S'
     )
-    console_formatter = logging.Formatter(('#%(levelname)-s, %(pathname)s, '
-                                           'line %(lineno)d: %(message)s'))
+    console_formatter = logging.Formatter(
+        '#%(levelname)-s, %(pathname)s, line %(lineno)d: %(message)s'
+    )
 
     # Создаётся обработчик,который будет писать сообщения в файл
     file_handler = logging.FileHandler(path, encoding='UTF-8')
-    file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(file_formatter)
 
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(console_formatter)
-    console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(console_formatter)
 
     # system_tray_handler = logging.Handler()
