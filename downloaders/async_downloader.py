@@ -1,5 +1,4 @@
 import asyncio
-import concurrent.futures
 from urllib.parse import urlsplit
 
 import aiohttp
@@ -129,7 +128,7 @@ class AsyncDownloader(BaseDownloader):
                 )
                 self._logger.warning(message)
                 return
-            except concurrent.futures.CancelledError:
+            except asyncio.CancelledError:
                 self.s_download_complete.emit(
                     UpgradeState.CANCELLED,
                     ['Обновленние отменено пользователем'], {}, {}

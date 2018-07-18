@@ -9,7 +9,6 @@ from PyQt5.QtCore import QCoreApplication, QModelIndex
 from notice_plugins import NoticePluginsContainer, UpdateCounterAction
 from schedulers import UpgradesScheduler
 from db.managers import DbManager
-from config_readers import SerialsUrls
 from gui.widgets import SearchLineEdit, SortFilterProxyModel, BoardNotices
 from configs import base_dir
 from upgrade_state import UpgradeState
