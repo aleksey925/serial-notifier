@@ -99,11 +99,7 @@ class AsyncDownloader(BaseDownloader):
 
                 self._downloaded_pages[site_name] = []
                 for i in site_data['urls']:
-                    tasks.append(
-                        asyncio.ensure_future(
-                            self._fetch(session, site_name, *i)
-                        )
-                    )
+                    tasks.append(self._fetch(session, site_name, *i))
 
             if not tasks:
                 self.s_download_complete.emit(
