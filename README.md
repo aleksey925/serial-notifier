@@ -10,7 +10,7 @@ serial-notifier - это приложение для отслеживания в
 Поддерживается получение информации о новых сериях с 2 сайтов:
 
 * filin.tv
-* filmix.me
+* filmix.co
 
 Приложение умеет обходить блокировоки при помощи прокси серверов (настроить это можно в setting.conf). 
 По этому если сайт по которому происходило отслеживание новых серий заблокируют, приложение не 
@@ -45,7 +45,7 @@ _Пример содержимого sites.conf_
     encoding = cp1251
     
     [filmix.me]
-    urls = Игра престолов;http://filmix.me//serialy/112983-igra-prestolov-2016.html
-        Бойтесь ходячих мертвецов;http://filmix.me//dramy/101118-boytes-hodyachih-mertvecov-fear-the-walking-dead-serial-2015.html
-        Флэш;http://filmix.me//fantastika/90379-flesh-the-flash-serial-2014.html
+    urls = Игра престолов;http://filmix.co/serialy/112983-igra-prestolov-2016.html
+        Бойтесь ходячих мертвецов;http://filmix.co/dramy/101118-boytes-hodyachih-mertvecov-fear-the-walking-dead-serial-2015.html
+        Флэш;http://filmix.co/fantastika/90379-flesh-the-flash-serial-2014.html
     encoding =
