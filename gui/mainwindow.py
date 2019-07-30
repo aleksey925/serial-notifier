@@ -322,7 +322,7 @@ class SerialTree(QtWidgets.QWidget):
             if next_element.isValid():
                 yield next_element
             else:
-                raise StopIteration
+                break
 
     @staticmethod
     def element_has_children(elem: QModelIndex):
