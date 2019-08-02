@@ -22,7 +22,13 @@ of setting.conf.
 
 Requirements:
 - python >= 3.6
-- requirements.txt (`pip3 install -r requirements.txt`)
+- poetry
+
+To install libraries, execute the below command:
+
+```bash
+poetry install
+```
 
 To start the program you need to launch the script `serial_notifier.py`.
 
@@ -73,7 +79,15 @@ serial-notifier - это приложение для отслеживания в
 Зависимости:
 
 - python >= 3.6
-- requirements.txt (`pip3 install -r requirements.txt`)
+- poetry
+
+После того как основные зависимости установлены, необходимо выполнить установку
+бибилиотек необходимых для работы приложения (команду описанную ниже, 
+необходимо выполнять находясь в корне проекта):
+
+```bash
+poetry install
+```
 
 Для того, что запустить программу, необходимо исполнить скрипт
 `serial_notifier.py`.
