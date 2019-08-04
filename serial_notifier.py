@@ -15,7 +15,7 @@ from db.managers import DbManager
 from gui import mainwindow
 from gui.widgets import SearchLineEdit, BoardNotices
 from gui.mainwindow import MainWindow, SerialTree, SystemTrayIcon
-from configs import base_dir, log_path
+from configs import base_dir, resources_dir, log_path
 from config_readers import ConfigsProgram, SerialsUrls
 from loggers import init_logger
 
@@ -30,8 +30,8 @@ class DIServises(cnt.DeclarativeContainer):
 
     db_manager = prv.Singleton(DbManager, main_window().s_send_db_task)
 
-    conf_program = prv.Singleton(ConfigsProgram, base_dir=base_dir)
-    serials_urls = prv.Singleton(SerialsUrls, base_dir=base_dir)
+    conf_program = prv.Singleton(ConfigsProgram, base_dir=resources_dir)
+    serials_urls = prv.Singleton(SerialsUrls, base_dir=resources_dir)
 
 
 # Внедрение зависимостей

@@ -86,7 +86,9 @@ class SerialsUrls(BaseConfigReader):
         super().__init__(base_dir, conf_name)
 
         self._default_settings = {
-            'filin.tv': {'urls': '<Название сериала>;<url>', 'encoding': ''},
+            'filin.tv': {
+                'urls': '<Название сериала>;<url>', 'encoding': 'cp1251'
+            },
             'filmix.me': {'urls': '<Название сериала>;<url>', 'encoding': ''}
         }
         self.init()
@@ -104,7 +106,7 @@ class SerialsUrls(BaseConfigReader):
             for value in options['urls'].split('\n'):
                 if value != '':
                     data[section]['urls'].append(value.split(';'))
-            data[section]['encoding'] = options['encoding']
+            data[section]['encoding'] = options.get('encoding', '')
 
         self._data = data
 

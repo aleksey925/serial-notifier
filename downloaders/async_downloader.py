@@ -71,14 +71,14 @@ class AsyncDownloader(BaseDownloader):
                 self._urls_errors.setdefault(
                     f'{site_name}_{serial_name}', list()
                 ).append(message)
-                self._logger.error(message)
+                self._logger.exception(message)
             except aiohttp.ClientConnectionError:
                 self.clear_proxy_cache()
                 message = f'Ошибка подключени к {url}'
                 self._urls_errors.setdefault(
                     f'{site_name}_{serial_name}', list()
                 ).append(message)
-                self._logger.error(message)
+                self._logger.exception(message)
             except Exception:
                 message = (
                     f'Возникла непредвиденная ошибка при подключении к {url}'
@@ -87,12 +87,13 @@ class AsyncDownloader(BaseDownloader):
                 self._urls_errors.setdefault(
                     f'{site_name}_{serial_name}', list()
                 ).append(message)
-                self._logger.error(message, exc_info=True)
+                self._logger.exception(message)
 
     async def _wrapper_for_tasks(self):
         tasks = []
 
-        async with aiohttp.ClientSession() as session:
+        connector = aiohttp.TCPConnector(verify_ssl=False)
+        async with aiohttp.ClientSession(connector=connector) as session:
             for site_name, site_data in self._target_urls.items():
                 if len(site_data['urls']) == 0:
                     continue
