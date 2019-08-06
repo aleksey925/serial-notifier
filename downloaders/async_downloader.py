@@ -59,7 +59,8 @@ class AsyncDownloader(BaseDownloader):
                         url, proxy=proxy, allow_redirects=True) as response:
                     page = await response.text()
                     self._downloaded_pages[site_name].append(
-                        [serial_name, page])
+                        [serial_name, url, page]
+                    )
                     return
             except asyncio.CancelledError:
                 # Пробрасываем ошибку дальше, потому что она сообщает об отмене

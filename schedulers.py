@@ -107,12 +107,12 @@ class UpgradesScheduler(QtCore.QTimer):
 
     def parse_complete(self, serials_data: dict, errors: dict):
         """
-        Получает данные извлеченные из скаченых HTML старниц отпрвляет их
-        для обновления БД
+        Получает данные извлеченные из скаченых HTML старниц и запускает
+        обновления БД
 
         :param serials_data Данные о сериалах полученые после парсинга HTML
         Пример:
-        {'filin.tv': {'Теория Большого взрыва': {'Серия': [17], 'Сезон': 1},}
+        {'filin.tv': {'Теория Большого взрыва': ('http://filin.tv/comedi/tbv.html', {'Серия': [17], 'Сезон': 1}),}
         :param errors список сериалов страницы с которыми не удалось распарсить
         """
         for serial, err_msgs in errors.items():

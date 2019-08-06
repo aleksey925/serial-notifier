@@ -19,7 +19,7 @@ class ThreadDownloader(BaseDownloader):
     Асинхронных загрузчик данных с web страниц основанный на потоках
     """
     s_serial_downloaded = QtCore.pyqtSignal(
-        str, str, str, list, name='s_serial_downloaded'
+        str, str, str, str, list, name='s_serial_downloaded'
     )
     s_worker_complete = QtCore.pyqtSignal(name='s_worker_complete')
 
@@ -97,11 +97,11 @@ class ThreadDownloader(BaseDownloader):
         )
 
     def _serial_downloaded(self, site_name: str, serial_name: str, html: str,
-                           url_errors: list):
+                           url: str, url_errors: list):
 
         if html:
             self._downloaded_pages.setdefault(site_name, []).append(
-                [serial_name, html]
+                [serial_name, url, html]
             )
         if url_errors:
             self._urls_errors.setdefault(
@@ -251,7 +251,7 @@ class Worker(QtCore.QThread):
 
             if html is None:
                 self.s_serial_downloaded.emit(
-                    site_name, serial_name, '', list(url_errors)
+                    site_name, serial_name, '', url, list(url_errors)
                 )
                 continue
             if encoding:
@@ -259,7 +259,7 @@ class Worker(QtCore.QThread):
 
             if not self.f_cancel_download:
                 self.s_serial_downloaded.emit(
-                    site_name, serial_name, html.text, list(url_errors)
+                    site_name, serial_name, html.text, url, list(url_errors)
                 )
 
         if not self.f_cancel_download:

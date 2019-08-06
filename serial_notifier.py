@@ -12,7 +12,7 @@ import notice_plugins
 import schedulers
 from downloaders import base_downloader
 from db.managers import DbManager
-from gui import mainwindow
+from gui import mainwindow, widgets
 from gui.widgets import SearchLineEdit, BoardNotices
 from gui.mainwindow import MainWindow, SerialTree, SystemTrayIcon
 from configs import base_dir, resources_dir, log_path
@@ -36,6 +36,7 @@ class DIServises(cnt.DeclarativeContainer):
 
 # Внедрение зависимостей
 mainwindow.DIServises.override(DIServises)
+widgets.DIServises.override(DIServises)
 schedulers.DIServises.override(DIServises)
 notice_plugins.DIServises.override(DIServises)
 base_downloader.DIServises.override(DIServises)

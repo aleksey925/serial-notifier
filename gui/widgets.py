@@ -2,14 +2,19 @@
 Дополнительные виджеты для gui
 """
 import re
-
 from os.path import join
 
+import dependency_injector.containers as cnt
+import dependency_injector.providers as prv
 from PyQt5 import QtGui, QtCore, QtWidgets
-from PyQt5.QtWidgets import QStyle
 from PyQt5.QtCore import QModelIndex
+from PyQt5.QtWidgets import QStyle
 
 from configs import base_dir
+
+
+class DIServises(cnt.DeclarativeContainer):
+    app = prv.Provider()
 
 
 class SearchLineEdit(QtWidgets.QLineEdit):
@@ -59,10 +64,16 @@ class Notification(QtWidgets.QLabel):
     def __init__(self, massage, *args, **kwargs):
         super(Notification, self).__init__(*args, **kwargs)
 
+        self.selected_link = None
+
         if callable(self.icon_close):
             self.icon_close = self.icon_close()
 
         self.setText('<br>{}<br>'.format(massage))
+
+        self.link_context_menu = QtWidgets.QMenu()
+        a_copy_link = self.link_context_menu.addAction('Скопировать ссылку')
+        a_copy_link.triggered.connect(self._copy_link)
 
         # fixme когда уведомлений много крестик съезжает
         self.button = QtWidgets.QToolButton(self)
@@ -73,6 +84,7 @@ class Notification(QtWidgets.QLabel):
         frame_width = self.style().pixelMetric(QStyle.PM_DefaultFrameWidth)
         button_size = self.button.sizeHint()
 
+        self.linkHovered.connect(self._link_hovered)
         self.setStyleSheet("""padding-right: {0}px;
                             padding-left: 2px;
                             color: #fff;
@@ -98,6 +110,27 @@ class Notification(QtWidgets.QLabel):
         self.button.move(width - frame_width - button_size.width(),
                          height * 5 // 100)
         super(Notification, self).resizeEvent(event)
+
+    def contextMenuEvent(self, q_context_menu_event):
+        self.link_context_menu.move(
+            self.mapToGlobal(QtCore.QPoint(0, 0)) + q_context_menu_event.pos()
+        )
+        self.link_context_menu.show()
+
+    def _copy_link(self):
+        clipboard = DIServises.app().clipboard()
+        clipboard.clear(mode=clipboard.Clipboard)
+        clipboard.setText(self.selected_link)
+
+    def _link_hovered(self, link: str):
+        """
+        Обработчик для события "курсор наведен на ссылку". Необходим для работы
+        метода _copy_link.
+        :param link: строка, где название сериала и ссылка на него разделены
+        точкой с заяптой
+        """
+        if link:
+            self.selected_link = link.split(';')[1]
 
 
 class BoardNotices(QtWidgets.QWidget):
@@ -152,18 +185,27 @@ class BoardNotices(QtWidgets.QWidget):
 
         self._update_width_area()
 
-    def _link_activated(self, link):
-        self.search_field.setText(link)
+    def _link_activated(self, link: str):
+        """
+        Обработчик клика по ссылке
+        :param link: строка, где название сериала и ссылка на него разделены
+        точкой с заяптой
+        """
+        self.search_field.setText(link.split(';')[0])
 
     def prepare_message(self, data):
         result_message = ''
-        msg_pattern = ('<a style="color: white" href="{0}">{0}</a>: '
-                       'Сезон {1}, Серия {2}<br>')
+        msg_pattern = (
+            '<a style="color: white" href="{href}">{serial_name}</a>: '
+            'Сезон {season}, Серия {episode}<br>'
+        )
         for site_name, serials in data.items():
             result_message += '{}<br>'.format(site_name)
             for serial_name, i in serials.items():
+                url, i = i
                 result_message += msg_pattern.format(
-                    serial_name, i['Сезон'], ', '.join(map(str, i['Серия']))
+                    href=f'{serial_name};{url}', serial_name=serial_name,
+                    season=i['Сезон'], episode=', '.join(map(str, i['Серия']))
                 )
             result_message += '<br>'
         return re.sub('(<br>)*$', '', result_message)

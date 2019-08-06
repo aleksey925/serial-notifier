@@ -137,9 +137,9 @@ class BaseNoticePlugin:
         for site_name, serials in data.items():
             result_message += '{}\n'.format(site_name)
             for serial_name, i in serials.items():
+                url, i = i
                 result_message += '{}: Сезон {}, Серия {}\n'.format(
-                    serial_name, i['Сезон'],
-                    ', '.join(map(str, i['Серия']))
+                    serial_name, i['Сезон'], ', '.join(map(str, i['Серия']))
                 )
             result_message += '\n'
         return result_message.strip()

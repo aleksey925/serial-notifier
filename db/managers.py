@@ -135,16 +135,20 @@ class DbManager(QtCore.QThread):
                 i[0] for i in self.db_session.query(Serial.name).all()
             )
             for serial_name, data in serials_data.items():
-
+                url, data = data
                 if serial_name in serials_in_db:
                     # Обновляем в базе инфомрацию о сериале
-                    temp = self.update_serial(serial_name, data)
-                    if temp:
-                        new_data.setdefault(site_name, {})[serial_name] = temp
+                    updated_data = self.update_serial(serial_name, data)
+                    if updated_data:
+                        new_data.setdefault(site_name, {})[serial_name] = (
+                            url, updated_data
+                        )
                 else:
                     # Добавляем в базу информацию о новом сериале
                     self.add_new_serial(serial_name, data)
-                    new_data.setdefault(site_name, {})[serial_name] = data
+                    new_data.setdefault(site_name, {})[serial_name] = (
+                        url, data
+                    )
         try:
             self.db_session.commit()
             self.s_status_update.emit(UpgradeState.OK, [], new_data)
@@ -155,9 +159,7 @@ class DbManager(QtCore.QThread):
                 ['Не удалось обновить данные в БД'], new_data
 
             )
-            self._logger.error(
-                f'Не удалось обновить данные в БД.\n{traceback.format_exc()}'
-            )
+            self._logger.exception('Не удалось обновить данные в БД.')
 
     def update_serial(self, serial_name, serial_data):
         """
