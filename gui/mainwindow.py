@@ -225,7 +225,7 @@ class SerialTree(QtWidgets.QWidget):
             )
 
             self.model.removeRow(self._selected_element[1].row())
-            self.main_window.urls.remove(serial_name)
+            self.main_window.upgrades_scheduler.urls.remove(serial_name)
 
     def change_status(self, status):
         """
