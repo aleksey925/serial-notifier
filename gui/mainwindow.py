@@ -10,11 +10,8 @@ from notice_plugins import NoticePluginsContainer, UpdateCounterAction
 from schedulers import UpgradesScheduler
 from db.managers import DbManager
 from gui.widgets import SearchLineEdit, SortFilterProxyModel, BoardNotices
-from configs import base_dir
+from configs import base_dir, window_title
 from upgrade_state import UpgradeState
-
-
-WINDOW_TITLE = 'В курсе новых серий'
 
 
 class DIServises(cnt.DeclarativeContainer):
@@ -33,7 +30,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         super(SystemTrayIcon, self).__init__(parent)
         self.main_window = parent
 
-        self.setToolTip(WINDOW_TITLE)
+        self.setToolTip(window_title)
         self.activated.connect(self.click_trap)
 
         self.icons = {
@@ -59,7 +56,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
     def change_icon(self, state):
         self.setIcon(self.icons[state])
         if state == 'normal':
-            self.setToolTip(WINDOW_TITLE)
+            self.setToolTip(window_title)
         else:
             self.setToolTip('Ищем новые серии...')
 
@@ -407,7 +404,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
         super(MainWindow, self).__init__()
-        self.setWindowTitle(WINDOW_TITLE)
+        self.setWindowTitle(window_title)
         self.installEventFilter(self)
 
         # Инициализация компановщиков окна
@@ -554,11 +551,11 @@ class MainWindow(QtWidgets.QMainWindow):
             )
         elif status == UpgradeState.OK and type_run == 'user':
             self.tray_icon.showMessage(
-                WINDOW_TITLE,
-                f'Новых серий не выходило{warning}')
+                window_title, f'Новых серий не выходило{warning}'
+            )
         elif status != UpgradeState.OK:
             self.tray_icon.showMessage(
-                WINDOW_TITLE, "\n".join(error_msgs) + warning
+                window_title, "\n".join(error_msgs) + warning
             )
 
         # todo добавить консоль для вывода ошибок из urls_errors

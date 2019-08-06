@@ -3,9 +3,11 @@ import time
 
 from PyQt5 import QtWidgets, QtGui, QtCore
 
+from configs import window_title
 from gui.mainwindow import SystemTrayIcon, MainWindow
-from . import NoticePluginsContainer, DIServises, BaseNoticePlugin, \
-    UpdateCounterAction
+from . import (
+    NoticePluginsContainer, DIServises, BaseNoticePlugin, UpdateCounterAction
+)
 
 
 class DesktopNotice(NoticePluginsContainer, BaseNoticePlugin):
@@ -48,7 +50,7 @@ class DesktopNotice(NoticePluginsContainer, BaseNoticePlugin):
     def send_notice(self, data, warning,
                     counter_action: UpdateCounterAction = None):
         self.tray_icon.showMessage(
-            'В курсе новых серий',  self.build_notice(data) + warning
+            window_title,  self.build_notice(data) + warning
         )
 
         if counter_action and not self.main_window.isActiveWindow():

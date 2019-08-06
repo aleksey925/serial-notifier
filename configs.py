@@ -17,3 +17,5 @@ base_dir = abspath(dirname(__file__))
 resources_dir = get_resources_dir()
 db_url = 'sqlite:///{}'.format(join(resources_dir, 'data-notifier.db'))
 log_path = join(resources_dir, 'log.txt')
+
+window_title = 'В курсе новых серий'
