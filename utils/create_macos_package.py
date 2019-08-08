@@ -1,68 +1,123 @@
 """
 Скрипт для создания нативного MacOS приложения, которое можно будет поместить
-в папку "Программы" и которое будет отображаться в лаунчере
+в папку "Программы" и которое будет отображаться в лаунчере.
 """
 import os
 import shutil
-from os.path import join, split, exists, expanduser, dirname, abspath
+import stat
+import sys
+from os.path import join, split, exists, dirname, abspath, realpath
 
 EXCLUDE = [
-    '.idea', '.git', 'utils', 'poetry.lock', 'pyproject.toml' 'README.md',
-    'setting.conf', 'sites.conf', 'log.txt', 'data-notifier.db'
+    '.idea', '.git', 'utils', 'venv', '.gitignore', 'poetry.lock',
+    'pyproject.toml', 'README.md', 'setting.conf', 'sites.conf', 'log.txt',
+    'data-notifier.db'
 ]
 MACOS_PACKAGE_DIRS = ['Contents/MacOS', 'Contents/Resources']
-PROJECT_ROOT_DIR = split(dirname(abspath(__file__)))[0]
-HOME_DIR = expanduser('~')
+BASE_DIR = dirname(abspath(__file__))
 
-SOURCE_ROOT_DIR = PROJECT_ROOT_DIR
+APP_ROOT_DIR = split(BASE_DIR)[0]
 APP_NAME = 'Serial Notifier'
-APP_VERSION = open(join(SOURCE_ROOT_DIR, 'version.txt')).read().strip()
-ICON_PATH = 'icons/app-icon-512x512.icns'
-ENTRY_POINT_SCRIPT = 'serial_notifier.py'
+APP_VERSION = open(join(APP_ROOT_DIR, 'version.txt')).read().strip()
+APP_ICON_PATH = 'icons/app-icon-512x512.icns'
+APP_ENTRY_POINT_SCRIPT = 'serial_notifier.py'
+BUNDLE_IDENTIFIER = f'org.{APP_NAME.replace(" " , "").lower()}'
 
-TARGET_DIR = HOME_DIR
+TARGET_DIR = BASE_DIR
 TARGET_PACKAGE_PATH = join(TARGET_DIR, APP_NAME + '.app')
 TARGET_PATH_RUN_SCRIPT = join(
-    TARGET_PACKAGE_PATH, MACOS_PACKAGE_DIRS[0], APP_NAME.replace(' ', '').lower()
+    TARGET_PACKAGE_PATH, MACOS_PACKAGE_DIRS[0],
+    APP_NAME.replace(' ', '').lower() + '.sh'
 )
+INTERPRETER_SYMLINK_NAME = 'python'
+
 
 info_plist = f'''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-  <dict>
+<dict>
     <key>CFBundleDocumentTypes</key>
     <array>
       <dict>
         <key>CFBundleTypeIconFile</key>
-        <string>{split(ICON_PATH)[1]}</string>
+        <string>{split(APP_ICON_PATH)[1]}</string>
       </dict>
     </array>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>English</string>
     <key>CFBundleExecutable</key>
-    <string>{APP_NAME.replace(' ', '').lower()}</string>
+    <string>{split(TARGET_PATH_RUN_SCRIPT)[1]}</string>
+    <key>CFBundleGetInfoString</key>
+    <string>{APP_NAME} {APP_VERSION}</string>
     <key>CFBundleIconFile</key>
-    <string>{split(ICON_PATH)[1]}</string>
+    <string>{split(APP_ICON_PATH)[1]}</string>
+    <key>CFBundleIdentifier</key>
+    <string>{BUNDLE_IDENTIFIER}</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
     <string>{APP_NAME}</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
     <key>CFBundleShortVersionString</key>
     <string>{APP_VERSION}</string>
-  </dict>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+    <key>CFBundleVersion</key>
+    <string>{APP_VERSION}</string>
+    <key>NSAppleScriptEnabled</key>
+    <string>YES</string>
+    <key>NSMainNibFile</key>
+    <string>MainMenu</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+</dict>
 </plist>
 '''
+
+pkg_info = 'APPL????'
 
 run_sh = '''#!/usr/bin/env bash
 export LC_ALL=en_US.UTF-8
 ROOT_DIR=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
-cd "$ROOT_DIR"
-./venv/bin/python3 ./%s
-''' % ENTRY_POINT_SCRIPT
+exec "$ROOT_DIR"/%s "$ROOT_DIR"/%s
+''' % (INTERPRETER_SYMLINK_NAME, APP_ENTRY_POINT_SCRIPT)
 
 
-def make_executable(path):
-    mode = os.stat(path).st_mode
-    mode |= (mode & 0o444) >> 2
-    os.chmod(path, mode)
+def get_python_path():
+    """
+    Вычисляет путь до используемыеого сейчас интерпретатора python. Найденный
+    интерпретатор будет использоваться для запуска собранного приложения.
+    Важно заметить, что должен использоваться python специально адаптированный
+    для MacOS (то есть упакованный в Python.app), иначе настройки из Info.plist
+    не применятся корректно. По этому использовать виртуальные окружения или
+    python поставленный через brew или pyenv нельзя.
+    :return: путь интерпретатора python
+    """
+    python_base_path, top = split(realpath(sys.executable))
+    while top:
+        if 'Resources' in python_base_path:
+            pass
+        elif exists(join(python_base_path, 'Resources')):
+            break
+
+        python_base_path, top = split(python_base_path)
+    else:
+        print(
+            f'Не удалось найти дирректорию Resources, которая ассоциирована с '
+            f'{sys.executable}'
+        )
+        sys.exit(1)
+
+    python_path = join(
+        python_base_path, 'Resources', 'Python.app', 'Contents', 'MacOS',
+        'Python'
+    )
+    if not exists(python_path):
+        print(f'Не удалсь найти Python in Python.app ({python_path})')
+        sys.exit(1)
+
+    return python_path
 
 
 if exists(TARGET_PACKAGE_PATH):
@@ -80,17 +135,10 @@ os.mkdir(TARGET_PACKAGE_PATH)
 for i in MACOS_PACKAGE_DIRS:
     os.makedirs(join(TARGET_PACKAGE_PATH, i), exist_ok=True)
 
-if 'venv' not in os.listdir(SOURCE_ROOT_DIR):
-    print(
-        'Необходимо в корне папки с проектом создать виртуальное окружение и '
-        'установить туда все необходимые библиотеки.'
-    )
-    exit(1)
-
 # Копируем файлы приложения в папку, которая будет представлять MacOS пакет
-for i in os.listdir(SOURCE_ROOT_DIR):
+for i in os.listdir(APP_ROOT_DIR):
     if i not in EXCLUDE:
-        from_ = join(SOURCE_ROOT_DIR, i)
+        from_ = join(APP_ROOT_DIR, i)
         if os.path.isdir(from_):
             shutil.copytree(
                 from_,
@@ -103,14 +151,28 @@ for i in os.listdir(SOURCE_ROOT_DIR):
 
 # Копируем иконку приложения в папку с ресурсами
 shutil.copy(
-    join(SOURCE_ROOT_DIR, ICON_PATH),
+    join(APP_ROOT_DIR, APP_ICON_PATH),
     join(TARGET_PACKAGE_PATH, MACOS_PACKAGE_DIRS[1])
 )
 
-with open(join(TARGET_PACKAGE_PATH, 'Contents', 'Info.plist'), 'w') as out:
+with open(join(TARGET_PACKAGE_PATH, 'Contents', 'Info.plist'), 'w',
+          encoding='utf-8') as out:
     out.write(info_plist)
 
-with open(TARGET_PATH_RUN_SCRIPT, 'w') as out:
+with open(join(TARGET_PACKAGE_PATH, 'Contents', 'PkgInfo'), 'w',
+          encoding='utf-8') as out:
+    out.write(pkg_info)
+
+with open(TARGET_PATH_RUN_SCRIPT, 'w', encoding='utf-8') as out:
     out.write(run_sh)
 
-make_executable(TARGET_PATH_RUN_SCRIPT)
+# Создает символическую ссылку на интерпретатор python
+os.symlink(
+    get_python_path(),
+    join(TARGET_PACKAGE_PATH, MACOS_PACKAGE_DIRS[0], INTERPRETER_SYMLINK_NAME)
+)
+
+os.chmod(
+        TARGET_PATH_RUN_SCRIPT, (os.stat(TARGET_PATH_RUN_SCRIPT).st_mode |
+                                 stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+)

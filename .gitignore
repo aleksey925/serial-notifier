@@ -187,3 +187,4 @@ $RECYCLE.BIN/
 log.txt
 sites.conf
 setting.conf
+*.app
