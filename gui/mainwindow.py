@@ -5,12 +5,13 @@ import dependency_injector.containers as cnt
 import dependency_injector.providers as prv
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QCoreApplication, QModelIndex
+from PyQt5.QtWidgets import QMessageBox
 
 from notice_plugins import NoticePluginsContainer, UpdateCounterAction
 from schedulers import UpgradesScheduler
 from db.managers import DbManager
 from gui.widgets import SearchLineEdit, SortFilterProxyModel, BoardNotices
-from configs import base_dir, window_title
+from configs import base_dir, app_name, app_version, is_native_macos_mode
 from upgrade_state import UpgradeState
 
 
@@ -30,7 +31,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         super(SystemTrayIcon, self).__init__(parent)
         self.main_window = parent
 
-        self.setToolTip(window_title)
+        self.setToolTip(app_name)
         self.activated.connect(self.click_trap)
 
         self.icons = {
@@ -56,7 +57,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
     def change_icon(self, state):
         self.setIcon(self.icons[state])
         if state == 'normal':
-            self.setToolTip(window_title)
+            self.setToolTip(app_name)
         else:
             self.setToolTip('Ищем новые серии...')
 
@@ -404,7 +405,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
         super(MainWindow, self).__init__()
-        self.setWindowTitle(window_title)
+        self.setWindowTitle(app_name)
         self.installEventFilter(self)
 
         # Инициализация компановщиков окна
@@ -429,6 +430,8 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Получение нужных виджетов через DI и инициализация
         """
+        self.init_menu_bar()
+
         self.tray_icon = DIServises.tray_icon()
         self.tray_icon.a_update.triggered.connect(self.run_upgrade)
         self.tray_icon.a_update_cancel.triggered.connect(self.cancel_upgrade)
@@ -471,6 +474,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.main_layout.addWidget(self.lab_search_field, 0, 0)
 
         self.set_position()
+
+    def init_menu_bar(self):
+        a_about = QtWidgets.QAction('О программе', self)
+        a_about.setStatusTip('Показать информацию о программе')
+        a_about.triggered.connect(
+            lambda: QMessageBox.about(
+                self, 'О программе', f'{app_name} {app_version}'
+            )
+        )
+
+        menubar = self.menuBar()
+        menubar.setNativeMenuBar(is_native_macos_mode)
+
+        help_menu = menubar.addMenu('Помощь')
+        help_menu.addAction(a_about)
 
     def set_position(self, width=430, height=500):
         self.setGeometry(0, 0, width, height)
@@ -551,11 +569,11 @@ class MainWindow(QtWidgets.QMainWindow):
             )
         elif status == UpgradeState.OK and type_run == 'user':
             self.tray_icon.showMessage(
-                window_title, f'Новых серий не выходило{warning}'
+                app_name, f'Новых серий не выходило{warning}'
             )
         elif status != UpgradeState.OK:
             self.tray_icon.showMessage(
-                window_title, "\n".join(error_msgs) + warning
+                app_name, "\n".join(error_msgs) + warning
             )
 
         # todo добавить консоль для вывода ошибок из urls_errors

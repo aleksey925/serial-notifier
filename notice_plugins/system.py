@@ -3,7 +3,7 @@ import time
 
 from PyQt5 import QtWidgets, QtGui, QtCore
 
-from configs import window_title
+from configs import app_name
 from gui.mainwindow import SystemTrayIcon, MainWindow
 from . import (
     NoticePluginsContainer, DIServises, BaseNoticePlugin, UpdateCounterAction
@@ -50,7 +50,7 @@ class DesktopNotice(NoticePluginsContainer, BaseNoticePlugin):
     def send_notice(self, data, warning,
                     counter_action: UpdateCounterAction = None):
         self.tray_icon.showMessage(
-            window_title,  self.build_notice(data) + warning
+            app_name,  self.build_notice(data) + warning
         )
 
         if counter_action and not self.main_window.isActiveWindow():
