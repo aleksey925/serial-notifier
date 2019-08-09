@@ -27,6 +27,13 @@ Requirements:
 To install libraries, execute the below command:
 
 ```bash
+poetry install --no-dev
+```
+
+If you want to install the dependencies you need to develop, execute the 
+below command:
+
+```bash
 poetry install
 ```
 
@@ -84,6 +91,13 @@ serial-notifier - это приложение для отслеживания в
 После того как основные зависимости установлены, необходимо выполнить установку
 бибилиотек необходимых для работы приложения (команду описанную ниже, 
 необходимо выполнять находясь в корне проекта):
+
+```bash
+poetry install --no-dev
+```
+
+Если нужно уставить зависимости необходимые для разработки, то выполните 
+команду:
 
 ```bash
 poetry install
