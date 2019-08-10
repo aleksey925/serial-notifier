@@ -7,7 +7,7 @@ from PyQt5 import QtCore
 from configs import log_path
 from config_readers import ConfigsProgram, SerialsUrls
 from downloaders.base_downloader import BaseDownloader
-from upgrade_state import UpgradeState
+from enums import UpgradeState
 
 
 # todo добавить поддержку use_proxy

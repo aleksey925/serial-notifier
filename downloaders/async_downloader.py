@@ -9,7 +9,7 @@ from gopac.exceptions import ErrorDecodeOutput, GoPacException
 
 from config_readers import SerialsUrls, ConfigsProgram
 from downloaders.base_downloader import BaseDownloader
-from upgrade_state import UpgradeState
+from enums import UpgradeState
 
 
 class AsyncDownloader(BaseDownloader):

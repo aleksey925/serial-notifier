@@ -10,7 +10,7 @@ from PyQt5 import QtCore
 from sip import wrappertype
 
 from config_readers import SerialsUrls, ConfigsProgram
-from upgrade_state import UpgradeState
+from enums import UpgradeState
 
 
 class DIServises(cnt.DeclarativeContainer):
@@ -147,6 +147,6 @@ class DownloaderInitializer(QtCore.QThread):
 
 class DownloadCancel(Exception):
     """
-    Исключение сообщающие, что загрузку необходимо отметить
+    Исключение сообщающие, что загрузку необходимо отменить
     """
     pass

@@ -10,6 +10,8 @@ from typing import Iterable, Union
 
 import lxml.html
 
+from enums import SupportedSites
+
 
 def filintv(page):
     """
@@ -104,9 +106,9 @@ def filmixme(page):
 
 
 parsers = {
-    'filin.tv': filintv,
-    'seasonvar': seasonvar,
-    'filmix.me': filmixme
+    SupportedSites.FILIN.value: filintv,
+    SupportedSites.SEASONVAR.value: seasonvar,
+    SupportedSites.FILMIX.value: filmixme
 }
 
 

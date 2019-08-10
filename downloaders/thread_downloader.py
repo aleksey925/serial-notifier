@@ -11,7 +11,7 @@ from gopac.exceptions import GoPacException, ErrorDecodeOutput
 
 from config_readers import ConfigsProgram, SerialsUrls
 from downloaders.base_downloader import BaseDownloader, DownloadCancel
-from upgrade_state import UpgradeState
+from enums import UpgradeState
 
 
 class ThreadDownloader(BaseDownloader):

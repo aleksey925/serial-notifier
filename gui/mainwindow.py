@@ -12,7 +12,7 @@ from schedulers import UpgradesScheduler
 from db.managers import DbManager
 from gui.widgets import SearchLineEdit, SortFilterProxyModel, BoardNotices
 from configs import base_dir, app_name, app_version, is_native_macos_mode
-from upgrade_state import UpgradeState
+from enums import UpgradeState
 
 
 class DIServises(cnt.DeclarativeContainer):

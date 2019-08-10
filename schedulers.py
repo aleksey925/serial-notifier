@@ -7,7 +7,7 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import Qt, pyqtSignal
 
 from config_readers import SerialsUrls, ConfigsProgram
-from upgrade_state import UpgradeState
+from enums import UpgradeState
 from downloaders import downloader, ThreadDownloader
 from parsers import AsyncHtmlParser
 

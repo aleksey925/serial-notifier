@@ -16,3 +16,12 @@ class UpgradeState(enum.Enum):
             return self.value < other.value
 
         return NotImplemented
+
+
+class SupportedSites(enum.Enum):
+    """
+    Название сайтов, которые поддерживаются приложением
+    """
+    FILIN = 'filin'
+    FILMIX = 'filmix'
+    SEASONVAR = 'seasonvar'

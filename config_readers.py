@@ -4,6 +4,8 @@ import logging
 import configparser
 from os.path import join, exists
 
+from enums import SupportedSites
+
 
 class BaseConfigReader:
     """
@@ -86,10 +88,9 @@ class SerialsUrls(BaseConfigReader):
         super().__init__(base_dir, conf_name)
 
         self._default_settings = {
-            'filin.tv': {
-                'urls': '<Название сериала>;<url>', 'encoding': 'cp1251'
-            },
-            'filmix.me': {'urls': '<Название сериала>;<url>', 'encoding': ''}
+            SupportedSites.FILIN.value: {'urls': '', 'encoding': 'cp1251'},
+            SupportedSites.FILMIX.value: {'urls': '', 'encoding': ''},
+            SupportedSites.SEASONVAR.value: {'urls': '', 'encoding': ''},
         }
         self.init()
         self.read()

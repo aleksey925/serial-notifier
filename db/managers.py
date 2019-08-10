@@ -5,7 +5,7 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
 from sqlalchemy import and_
 
-from upgrade_state import UpgradeState
+from enums import UpgradeState
 from .models import Serial, Series
 from db import create_db_session
 
