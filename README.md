@@ -21,6 +21,7 @@ of setting.conf.
 ## Install and launch
 
 Requirements:
+
 - python >= 3.6
 - poetry
 
