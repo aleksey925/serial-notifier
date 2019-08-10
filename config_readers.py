@@ -3,6 +3,7 @@ import codecs
 import logging
 import configparser
 from os.path import join, exists
+from urllib.parse import urlsplit
 
 from enums import SupportedSites
 
@@ -110,6 +111,39 @@ class SerialsUrls(BaseConfigReader):
             data[section]['encoding'] = options.get('encoding', '')
 
         self._data = data
+
+    def add(self, tv_serial_name, tv_series_url):
+        """
+        Добавляет новый сериал в список отслеживаемых
+        :param tv_serial_name: название сериала
+        :param tv_series_url: url сериала
+        """
+        parsed_url = urlsplit(tv_series_url)
+        try:
+            base_url = parsed_url.netloc.split('.')[0]
+            site = SupportedSites(base_url)
+        except ValueError:
+            msg = 'Введеный сайт не поддерживается приложением'
+            self._logger.error(msg + f' ({tv_series_url})')
+            raise ValueError(msg)
+
+        urls = self._cfg_parser[site.value]['urls']
+        tv_serial_name = tv_serial_name.replace(';', ' ')
+
+        if tv_serial_name in urls:
+            raise ValueError('Сериал с таким именем уже добавлен')
+        if parsed_url.path in urls:
+            raise ValueError(
+                'Данный сериал уже отслеживается, но под другим именем'
+            )
+
+        sep = '' if len(urls) == 0 else '\n'
+        self._cfg_parser[site.value]['urls'] += (
+            f'{sep}{tv_serial_name};{tv_series_url}'
+        )
+
+        self.write()
+        self.read()
 
     def remove(self, serial_name):
         """

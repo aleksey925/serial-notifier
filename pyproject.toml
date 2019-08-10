@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "serial-notifier"
-version = "1.0.2"
+version = "1.0.3"
 description = ""
 authors = ["Aleksey Petrunnik <zzz_vvv.94@mail.ru>"]
 
@@ -8,14 +8,14 @@ authors = ["Aleksey Petrunnik <zzz_vvv.94@mail.ru>"]
 python = "^3.6"
 aiohttp = "=3.5.4"
 async_timeout = "=3.0.1"
-SQLAlchemy = "=1.2.7"
-dependency_injector = "=3.12.0"
+SQLAlchemy = "=1.3.6"
+dependency_injector = "=3.14.8"
 quamash = "=0.6.1"
-cssselect = "=1.0.3"
-lxml = "=4.2.1"
+cssselect = "=1.1.0"
+lxml = "=4.4.0"
 PyQt5 = "=5.13.0"
 sip = "=4.19.8"
-requests = "=2.18.4"
+requests = "=2.22.0"
 gopac = { git = "https://alex925@bitbucket.org/alex925/gopac.git", branch = "master" }
 
 [tool.poetry.dev-dependencies]

@@ -20,6 +20,7 @@ class DIServises(cnt.DeclarativeContainer):
     serial_tree = prv.Provider()
     search_field = prv.Provider()
     board_notices = prv.Provider()
+    add_new_tv_series_windows = prv.Provider()
 
     db_manager = prv.Provider()
 
@@ -476,6 +477,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.set_position()
 
     def init_menu_bar(self):
+        a_add_new_tv_series = QtWidgets.QAction('Добавить новый сериал', self)
+        a_add_new_tv_series.setStatusTip(
+            'Добавление нового сериала в список отслеживаемых'
+        )
+        a_add_new_tv_series.triggered.connect(
+            DIServises.add_new_tv_series_windows()
+        )
+
+        a_exit = QtWidgets.QAction('Выйти', self)
+        a_exit.setStatusTip(
+            'Закрыть приложение'
+        )
+        a_exit.triggered.connect(QCoreApplication.instance().exit)
+
         a_about = QtWidgets.QAction('О программе', self)
         a_about.setStatusTip('Показать информацию о программе')
         a_about.triggered.connect(
@@ -486,6 +501,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
         menubar = self.menuBar()
         menubar.setNativeMenuBar(is_native_macos_mode)
+
+        action_menu = menubar.addMenu('Действия')
+        action_menu.addAction(a_add_new_tv_series)
+        if not is_native_macos_mode:
+            action_menu.addAction(a_exit)
 
         help_menu = menubar.addMenu('Помощь')
         help_menu.addAction(a_about)

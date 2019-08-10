@@ -12,7 +12,7 @@ import notice_plugins
 import schedulers
 from downloaders import base_downloader
 from db.managers import DbManager
-from gui import mainwindow, widgets
+from gui import mainwindow, widgets, add_new_tv_series
 from gui.widgets import SearchLineEdit, BoardNotices
 from gui.mainwindow import MainWindow, SerialTree, SystemTrayIcon
 from configs import base_dir, resources_dir, log_path
@@ -27,6 +27,9 @@ class DIServises(cnt.DeclarativeContainer):
     serial_tree = prv.Singleton(SerialTree, parent=main_window())
     search_field = prv.Singleton(SearchLineEdit, parent=main_window())
     board_notices = prv.Singleton(BoardNotices, search_field)
+    add_new_tv_series_windows = prv.Singleton(
+        add_new_tv_series.AddNewTvSeriesWindows, parent=main_window()
+    )
 
     db_manager = prv.Singleton(DbManager, main_window().s_send_db_task)
 
@@ -37,6 +40,7 @@ class DIServises(cnt.DeclarativeContainer):
 # Внедрение зависимостей
 mainwindow.DIServises.override(DIServises)
 widgets.DIServises.override(DIServises)
+add_new_tv_series.DIServises.override(DIServises)
 schedulers.DIServises.override(DIServises)
 notice_plugins.DIServises.override(DIServises)
 base_downloader.DIServises.override(DIServises)
