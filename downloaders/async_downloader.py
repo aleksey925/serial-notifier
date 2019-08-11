@@ -75,7 +75,7 @@ class AsyncDownloader(BaseDownloader):
                 self._logger.exception(message)
             except aiohttp.ClientConnectionError:
                 self.clear_proxy_cache()
-                message = f'Ошибка подключени к {url}'
+                message = f'Невозможно установить соединение с {url}'
                 self._urls_errors.setdefault(
                     f'{site_name}_{serial_name}', list()
                 ).append(message)

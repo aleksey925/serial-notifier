@@ -13,7 +13,7 @@ import lxml.html
 from enums import SupportedSites
 
 
-def filintv(page):
+def filin(page):
     """
     Извлекает c filin.tv текущую информацию о сезоне и сериях
     с переданного url
@@ -85,7 +85,7 @@ def seasonvar(page):
             return {'Серия': series, 'Сезон': season}
 
 
-def filmixme(page):
+def filmix(page):
     parser = lxml.html.fromstring(page)
     data = parser.cssselect('.added-info')[0].text
     series = re.findall('([\d-]+) серия', data, re.IGNORECASE)
@@ -106,9 +106,9 @@ def filmixme(page):
 
 
 parsers = {
-    SupportedSites.FILIN.value: filintv,
+    SupportedSites.FILIN.value: filin,
     SupportedSites.SEASONVAR.value: seasonvar,
-    SupportedSites.FILMIX.value: filmixme
+    SupportedSites.FILMIX.value: filmix
 }
 
 

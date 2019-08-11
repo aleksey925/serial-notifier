@@ -128,7 +128,6 @@ class SerialsUrls(BaseConfigReader):
             raise ValueError(msg)
 
         urls = self._cfg_parser[site.value]['urls']
-        tv_serial_name = tv_serial_name.replace(';', ' ')
 
         if tv_serial_name in urls:
             raise ValueError('Сериал с таким именем уже добавлен')

@@ -9,7 +9,7 @@ import sys
 from os.path import join, split, exists, dirname, abspath, realpath
 
 EXCLUDE = [
-    '.idea', '.git', 'utils', 'venv', '.gitignore', 'poetry.lock',
+    '.idea', '.git', 'tools', 'venv', '.gitignore', 'poetry.lock',
     'pyproject.toml', 'README.md', 'setting.conf', 'sites.conf', 'log.txt',
     'data-notifier.db'
 ]
