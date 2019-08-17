@@ -21,6 +21,7 @@ class DIServises(cnt.DeclarativeContainer):
     search_field = prv.Provider()
     board_notices = prv.Provider()
     add_new_tv_series_windows = prv.Provider()
+    rename_tv_series_windows = prv.Provider()
 
     db_manager = prv.Provider()
 
@@ -112,8 +113,9 @@ class SerialTree(QtWidgets.QWidget):
         super(SerialTree, self).__init__(parent)
         self.main_window = parent
 
-        # Сюда заносится элемент для которого вызвали контекстное меню
-        self._selected_element = ()
+        # Хранит уровень вложенности выбраннного элемента и сам элемент (для
+        # которого вызвали контекстное меню)
+        self.selected_element = ()
 
         self.looked_status = {
             'True': QtGui.QIcon(join(base_dir, 'icons/tick_green.png')),
@@ -125,8 +127,8 @@ class SerialTree(QtWidgets.QWidget):
         self.model = QtGui.QStandardItemModel()
         self.filter_by_name = SortFilterProxyModel()
         self.context_menu = {
-            'base': QtWidgets.QMenu(),
-            'serial': QtWidgets.QMenu()
+            'any_level': QtWidgets.QMenu(),
+            'root_element': QtWidgets.QMenu()
         }
 
         self.build_widgets()
@@ -186,28 +188,36 @@ class SerialTree(QtWidgets.QWidget):
 
     def create_context_menu(self):
         actions = {
-            'base': {
+            'any_level': {
                 'Смотрел': lambda: self.change_status('True'),
                 'Не смотрел': lambda: self.change_status('False')
             },
-            'serial': {
-                'Удалить': self.remove_serial
+            'root_element': {
+                'Переименовать': self.rename_tv_series,
+                'Удалить': self.remove_serial,
             }
         }
 
         for name_menu, menu in self.context_menu.items():
             acts = {}
-            acts.update(actions['base'])
+            acts.update(actions['any_level'])
             acts.update(actions[name_menu])
             for name_action, func in acts.items():
                 menu.addAction(name_action, func)
+
+    def rename_tv_series(self):
+        """
+        Выполняет переименование сериала
+        """
+        currnet_name = self.selected_element[1].data()
+        DIServises.rename_tv_series_windows()(currnet_name)
 
     def remove_serial(self):
         """
         Удаляет данные о сериале из БД и из конфига со списоком
         отслеживаемых сериалов
         """
-        serial_name = self._selected_element[1].data()
+        serial_name = self.selected_element[1].data()
 
         reply = QtWidgets.QMessageBox.information(
             self, 'Удаление',
@@ -223,22 +233,22 @@ class SerialTree(QtWidgets.QWidget):
                 )
             )
 
-            self.model.removeRow(self._selected_element[1].row())
-            self.main_window.upgrades_scheduler.urls.remove(serial_name)
+            self.model.removeRow(self.selected_element[1].row())
+            DIServises.serials_urls().remove(serial_name)
 
     def change_status(self, status):
         """
         Меняет статус выбранного элемента (смотрел/не смотрел)
         """
-        serial_index = self._get_root_element(self._selected_element[1])
+        serial_index = self._get_root_element(self.selected_element[1])
         updated_inf = {'name': serial_index.data(), 'season': '', 'series': ''}
 
-        if self._selected_element[0] == 0:
+        if self.selected_element[0] == 0:
             # Меняем статусы у всех сезонов и серий сериала
             self._change_serial_status(serial_index, status)
-        elif self._selected_element[0] == 1:
+        elif self.selected_element[0] == 1:
             # Меняем статус сезона
-            season_index = self._selected_element[1]
+            season_index = self.selected_element[1]
             self.model.itemFromIndex(season_index).setIcon(
                 self.looked_status[status]
             )
@@ -252,8 +262,8 @@ class SerialTree(QtWidgets.QWidget):
             updated_inf['season'] = season_index.data().split('Сезон ')[1]
         else:
             # Меняю статус серии
-            season_index = self._selected_element[1].parent()
-            series_index = self._selected_element[1]
+            season_index = self.selected_element[1].parent()
+            series_index = self.selected_element[1]
             self.model.itemFromIndex(series_index).setIcon(
                 self.looked_status[status]
             )
@@ -279,7 +289,7 @@ class SerialTree(QtWidgets.QWidget):
 
         self.main_window.s_send_db_task.emit(
             lambda: self.main_window.db_manager.change_status(
-                updated_inf, status, self._selected_element[0]
+                updated_inf, status, self.selected_element[0]
             )
         )
 
@@ -357,14 +367,14 @@ class SerialTree(QtWidgets.QWidget):
         # Так как используется прокси модель, то сначала нужно извлечь индекс
         # ссылающийся на исходную модель
         proxy_index = self.view.model().mapToSource(indexes[0])
-        self._selected_element = (level, proxy_index)
+        self.selected_element = (level, proxy_index)
 
         if level == 0:
-            self.context_menu['serial'].exec_(
+            self.context_menu['root_element'].exec_(
                 self.view.viewport().mapToGlobal(position)
             )
         else:
-            self.context_menu['base'].exec_(
+            self.context_menu['any_level'].exec_(
                 self.view.viewport().mapToGlobal(position)
             )
 
@@ -383,7 +393,7 @@ class SerialTree(QtWidgets.QWidget):
         root.setIcon(self.looked_status[str(element['serial_looked'])])
         self.model.appendRow(root)
 
-        for num_season, series in element['seasons'].items():
+        for num_season, series in element.get('seasons', {}).items():
             season = QtGui.QStandardItem('Сезон {}'.format(num_season))
             season.setEditable(False)
             if num_season in element['not_looked_season']:

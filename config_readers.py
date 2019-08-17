@@ -88,6 +88,7 @@ class SerialsUrls(BaseConfigReader):
     def __init__(self, base_dir, conf_name='sites.conf'):
         super().__init__(base_dir, conf_name)
 
+        self.url_sep = ';'
         self._default_settings = {
             SupportedSites.FILIN.value: {'urls': '', 'encoding': 'cp1251'},
             SupportedSites.FILMIX.value: {'urls': '', 'encoding': ''},
@@ -107,7 +108,7 @@ class SerialsUrls(BaseConfigReader):
             data[section]['urls'] = []
             for value in options['urls'].split('\n'):
                 if value != '':
-                    data[section]['urls'].append(value.split(';'))
+                    data[section]['urls'].append(value.split(self.url_sep))
             data[section]['encoding'] = options.get('encoding', '')
 
         self._data = data
@@ -138,8 +139,22 @@ class SerialsUrls(BaseConfigReader):
 
         sep = '' if len(urls) == 0 else '\n'
         self._cfg_parser[site.value]['urls'] += (
-            f'{sep}{tv_serial_name};{tv_series_url}'
+            f'{sep}{tv_serial_name}{self.url_sep}{tv_series_url}'
         )
+
+        self.write()
+        self.read()
+
+    def rename(self, old_name, new_name):
+        for section_name, section in self._cfg_parser.items():
+            urls = section.get('urls', None)
+            if urls is not None:
+                section['urls'] = re.sub(
+                    f'(^|\s*)({old_name})({self.url_sep})',
+                    rf'\g<1>{new_name}\g<3>',
+                    urls,
+                    flags=re.UNICODE | re.MULTILINE
+                )
 
         self.write()
         self.read()
@@ -152,7 +167,7 @@ class SerialsUrls(BaseConfigReader):
         for section_name, section in self._cfg_parser.items():
             for option, value in section.items():
                 self._cfg_parser[section_name][option] = re.sub(
-                    '{};.*\n?'.format(serial_name), '', value
+                    f'{serial_name}{self.url_sep}.*\n?', '', value
                 )
         self.write()
         self.read()

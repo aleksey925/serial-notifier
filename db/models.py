@@ -9,6 +9,7 @@ Base = declarative_base()
 class Serial(Base):
     __tablename__ = 'serial'
     id = Column(Integer, primary_key=True)
+    # TODO Сделать поле name уникальным
     name = Column(String(150))
     # backref добавляет в объек Series атрибут serial, который ссылается на
     # родительский объект

@@ -208,8 +208,23 @@ class DbManager(QtCore.QThread):
 
         self.db_session.add(current_serial)
 
+    def rename_serial(self, current_name: str, new_name: str):
+        serial = self.db_session.query(Serial).filter(
+            Serial.name == current_name
+        ).one()
+        serial.name = new_name
+
+        try:
+            self.db_session.commit()
+        except Exception:
+            self.db_session.rollback()
+            self._logger.exception(
+                f'Не удалось переименовать сериал "{current_name}"'
+            )
+
     def remove_serial(self, serial_name: str):
-        # todo сделать ещё один сигнал через который буду кидать инфу о том прошла операция успешно или нет
+        # todo сделать ещё один сигнал через который буду кидать инфу о том
+        #  прошла операция успешно или нет
         serial = self.db_session.query(Serial).filter(
             Serial.name == serial_name
         )
@@ -222,11 +237,10 @@ class DbManager(QtCore.QThread):
 
         try:
             self.db_session.commit()
-        except Exception as err:
+        except Exception:
             self.db_session.rollback()
-            self._logger.error(
-                f'Не удалось удалить сериал "{serial_name}".\n'
-                f'{traceback.format_exc()}'
+            self._logger.exception(
+                f'Не удалось удалить сериал "{serial_name}"'
             )
 
     def _check_updates(self, serial_name: str, season: str, series: list):
