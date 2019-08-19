@@ -17,6 +17,7 @@ PyQt5 = "=5.13.0"
 sip = "=4.19.8"
 requests = "=2.22.0"
 gopac = { git = "https://alex925@bitbucket.org/alex925/gopac.git", branch = "master" }
+alembic ="=1.0.11"
 
 [tool.poetry.dev-dependencies]
 PyQt5-stubs = "=5.13.0.1"
