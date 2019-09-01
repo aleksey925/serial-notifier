@@ -24,7 +24,7 @@ class Serial(Base):
 class Series(Base):
     __tablename__ = 'series'
     id = Column(Integer, primary_key=True)
-    id_serial = Column(Integer, ForeignKey('serial.id'))
+    id_serial = Column(Integer, ForeignKey('serial.id', ondelete='CASCADE'))
     series_number = Column(Integer)
     season_number = Column(Integer)
     looked = Column(Boolean(), default=False)

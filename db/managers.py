@@ -227,15 +227,10 @@ class DbManager(QtCore.QThread):
         #  прошла операция успешно или нет
         serial = self.db_session.query(Serial).filter(
             Serial.name == serial_name
-        )
-        series = self.db_session.query(Series).filter(
-            Series.id_serial == serial.one().id
-        )
-
-        series.delete(synchronize_session=False)
-        serial.delete(synchronize_session=False)
+        ).one()
 
         try:
+            self.db_session.delete(serial)
             self.db_session.commit()
         except Exception:
             self.db_session.rollback()

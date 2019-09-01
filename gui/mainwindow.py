@@ -607,7 +607,6 @@ class MainWindow(QtWidgets.QMainWindow):
             )
 
         # todo добавить консоль для вывода ошибок из urls_errors
-        # fixme иногда приходит пустое уведомление
         self.upgrades_scheduler.clear_downloader()
 
     def update_list_serial(self, all_serials):
