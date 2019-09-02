@@ -13,7 +13,7 @@ from config_readers import SerialsUrls, ConfigsProgram
 from enums import UpgradeState
 
 
-class DIServises(cnt.DeclarativeContainer):
+class DIServices(cnt.DeclarativeContainer):
     conf_program = prv.Provider()
     serials_urls = prv.Provider()
 
@@ -38,8 +38,8 @@ class BaseDownloader(QtCore.QObject, metaclass=BaseDownloaderMetaClass):
         self._error_msgs = []
         self._downloaded_pages = {}
         self._downloaded_pac_file: str = ''
-        self._target_urls: SerialsUrls = DIServises.serials_urls()
-        self._conf_program: ConfigsProgram = DIServises.conf_program()
+        self._target_urls: SerialsUrls = DIServices.serials_urls()
+        self._conf_program: ConfigsProgram = DIServices.conf_program()
         self._downloader_initializer = DownloaderInitializer()
         self._logger = logging.getLogger('serial-notifier')
 
@@ -90,7 +90,7 @@ class DownloaderInitializer(QtCore.QThread):
         super().__init__()
         self.f_stop = False
         self.logger = logging.getLogger('serial-notifier')
-        self.conf_program = DIServises.conf_program()
+        self.conf_program = DIServices.conf_program()
 
     def run(self):
         self.f_stop = False

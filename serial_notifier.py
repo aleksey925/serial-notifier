@@ -20,7 +20,7 @@ from config_readers import ConfigsProgram, SerialsUrls
 from loggers import init_logger
 
 
-class DIServises(cnt.DeclarativeContainer):
+class DIServices(cnt.DeclarativeContainer):
     app = prv.Object(QtWidgets.QApplication(sys.argv))
     main_window = prv.Singleton(MainWindow)
     tray_icon = prv.Singleton(SystemTrayIcon, parent=main_window())
@@ -42,14 +42,14 @@ class DIServises(cnt.DeclarativeContainer):
 
 
 # Внедрение зависимостей
-mainwindow.DIServises.override(DIServises)
-widgets.DIServises.override(DIServises)
-windows.DIServises.override(DIServises)
-schedulers.DIServises.override(DIServises)
-notice_plugins.DIServises.override(DIServises)
-base_downloader.DIServises.override(DIServises)
+mainwindow.DIServices.override(DIServices)
+widgets.DIServices.override(DIServices)
+windows.DIServices.override(DIServices)
+schedulers.DIServices.override(DIServices)
+notice_plugins.DIServices.override(DIServices)
+base_downloader.DIServices.override(DIServices)
 
-app: QtWidgets.QApplication = DIServises.app()
+app: QtWidgets.QApplication = DIServices.app()
 app.icon = QtGui.QIcon(join(base_dir, 'icons/app-icon-512x512.png'))
 app.setWindowIcon(app.icon)
 loop = QEventLoop(app)
@@ -58,7 +58,7 @@ asyncio.set_event_loop(loop)
 init_logger(log_path)
 notice_plugins.NoticePluginsContainer.load_notice_plugins()
 
-window = DIServises.main_window()
+window = DIServices.main_window()
 window.init()
 window.show()
 

@@ -15,7 +15,7 @@ from configs import base_dir, app_name, app_version, is_native_macos_mode
 from enums import UpgradeState
 
 
-class DIServises(cnt.DeclarativeContainer):
+class DIServices(cnt.DeclarativeContainer):
     tray_icon = prv.Provider()
     serial_tree = prv.Provider()
     search_field = prv.Provider()
@@ -210,7 +210,7 @@ class SerialTree(QtWidgets.QWidget):
         Выполняет переименование сериала
         """
         currnet_name = self.selected_element[1].data()
-        DIServises.rename_tv_series_windows()(currnet_name)
+        DIServices.rename_tv_series_windows()(currnet_name)
 
     def remove_serial(self):
         """
@@ -234,7 +234,7 @@ class SerialTree(QtWidgets.QWidget):
             )
 
             self.model.removeRow(self.selected_element[1].row())
-            DIServises.serials_urls().remove(serial_name)
+            DIServices.serials_urls().remove(serial_name)
 
     def change_status(self, status):
         """
@@ -443,22 +443,22 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         self.init_menu_bar()
 
-        self.tray_icon = DIServises.tray_icon()
+        self.tray_icon = DIServices.tray_icon()
         self.tray_icon.a_update.triggered.connect(self.run_upgrade)
         self.tray_icon.a_update_cancel.triggered.connect(self.cancel_upgrade)
 
-        self.search_field = DIServises.search_field()
+        self.search_field = DIServices.search_field()
         self.search_field.textChanged.connect(self.change_filter_str)
         self.main_layout.addWidget(self.search_field, 0, 1)
 
-        self.serial_tree = DIServises.serial_tree()
+        self.serial_tree = DIServices.serial_tree()
         self.serial_tree.setMinimumSize(270, 100)
         self.main_layout.addWidget(self.serial_tree, 2, 0, 1, 2)
 
-        self.board_notices = DIServises.board_notices()
+        self.board_notices = DIServices.board_notices()
         self.main_layout.addWidget(self.board_notices, 0, 2, 3, 2)
 
-        self.db_manager = DIServises.db_manager()
+        self.db_manager = DIServices.db_manager()
         self.db_manager.s_serials_extracted.connect(
             self.update_list_serial, QtCore.Qt.QueuedConnection
         )
@@ -492,7 +492,7 @@ class MainWindow(QtWidgets.QMainWindow):
             'Добавление нового сериала в список отслеживаемых'
         )
         a_add_new_tv_series.triggered.connect(
-            DIServises.add_new_tv_series_windows()
+            DIServices.add_new_tv_series_windows()
         )
 
         a_exit = QtWidgets.QAction('Выйти', self)

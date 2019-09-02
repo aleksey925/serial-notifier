@@ -6,7 +6,7 @@ from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QMessageBox
 
 
-class DIServises(cnt.DeclarativeContainer):
+class DIServices(cnt.DeclarativeContainer):
     serials_urls = prv.Provider()
 
 
@@ -71,7 +71,7 @@ class AddNewTvSeriesWindows(QtWidgets.QDialog):
             return
 
         try:
-            DIServises.serials_urls().add(
+            DIServices.serials_urls().add(
                 self.tv_serials_name_edit.text(), self.url_edit.text()
             )
         except ValueError as err:
@@ -130,7 +130,7 @@ class RenameTvSeriesWindows(QtWidgets.QDialog):
             self.serial_tree.model.setData(
                 self.serial_tree.selected_element[1], new_name
             )
-            DIServises.serials_urls().rename(
+            DIServices.serials_urls().rename(
                 self.old_name, new_name
             )
             self.main_window.s_send_db_task.emit(

@@ -34,15 +34,8 @@ def init_logger(path):
     console_handler.setFormatter(console_formatter)
     console_handler.setFormatter(console_formatter)
 
-    # system_tray_handler = logging.Handler()
-    # system_tray_handler.emit = lambda record: system_tray.showMessage(
-    #     'Ошибка', system_tray_handler.format(record)
-    # )
-    # system_tray_handler.setLevel(logging.ERROR)
-
-    # добавляем обработчики в _logger
+    # добавляем обработчики в logger
     log.addHandler(file_handler)
     log.addHandler(console_handler)
-    # log.addHandler(system_tray_handler)
 
     sys.excepthook = unhandled_exception_hook

@@ -11,7 +11,7 @@ from config_readers import ConfigsProgram
 logger = logging.getLogger('serial-notifier')
 
 
-class DIServises(cnt.DeclarativeContainer):
+class DIServices(cnt.DeclarativeContainer):
     app = prv.Provider()
     main_window = prv.Provider()
     tray_icon = prv.Provider()
@@ -51,7 +51,7 @@ class NoticePluginMount(type):
         return not bool(missing)
 
     def registration_plugin(cls):
-        config_program = DIServises.conf_program()
+        config_program = DIServices.conf_program()
         if not config_program.get(cls.name, None):
             default_setting = {}
             default_setting.update(BaseNoticePlugin.default_setting)
@@ -105,7 +105,7 @@ class BaseNoticePlugin:
     }
 
     def __init__(self):
-        self.conf_program: ConfigsProgram = DIServises.conf_program()
+        self.conf_program: ConfigsProgram = DIServices.conf_program()
 
     def send_notice(self, data, warning, counter_action: UpdateCounterAction=None):
         """

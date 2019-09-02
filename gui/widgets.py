@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import QStyle
 from configs import base_dir
 
 
-class DIServises(cnt.DeclarativeContainer):
+class DIServices(cnt.DeclarativeContainer):
     app = prv.Provider()
 
 
@@ -118,7 +118,7 @@ class Notification(QtWidgets.QLabel):
         self.link_context_menu.show()
 
     def _copy_link(self):
-        clipboard = DIServises.app().clipboard()
+        clipboard = DIServices.app().clipboard()
         clipboard.clear(mode=clipboard.Clipboard)
         clipboard.setText(self.selected_link)
 

@@ -183,11 +183,11 @@ if __name__ == '__main__':
     from downloaders import base_downloader
     from configs import base_dir
 
-    class DIServises(cnt.DeclarativeContainer):
+    class TestDIServices(cnt.DeclarativeContainer):
         conf_program = prv.Singleton(ConfigsProgram, base_dir=base_dir)
         serials_urls = prv.Singleton(SerialsUrls, base_dir=base_dir)
 
-    base_downloader.DIServises.override(DIServises)
+    base_downloader.DIServices.override(TestDIServices)
 
     class SelfTest(QtCore.QObject):
         def __init__(self):

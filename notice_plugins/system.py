@@ -6,7 +6,7 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 from configs import app_name
 from gui.mainwindow import SystemTrayIcon, MainWindow
 from . import (
-    NoticePluginsContainer, DIServises, BaseNoticePlugin, UpdateCounterAction
+    NoticePluginsContainer, DIServices, BaseNoticePlugin, UpdateCounterAction
 )
 
 
@@ -31,9 +31,9 @@ class DesktopNotice(NoticePluginsContainer, BaseNoticePlugin):
         self.font_tray: QtGui.QFont = None
         self.font_task_bar: QtGui.QFont = None
 
-        self.app: QtWidgets.QApplication = DIServises.app()
-        self.main_window: MainWindow = DIServises.main_window()
-        self.tray_icon: SystemTrayIcon = DIServises.tray_icon()
+        self.app: QtWidgets.QApplication = DIServices.app()
+        self.main_window: MainWindow = DIServices.main_window()
+        self.tray_icon: SystemTrayIcon = DIServices.tray_icon()
 
         self.clean_icon = self.tray_icon.icons['normal']
 
@@ -155,7 +155,7 @@ class BoardNotices(NoticePluginsContainer, BaseNoticePlugin):
     def __init__(self):
         super().__init__()
 
-        self.board_notices = DIServises.board_notices()
+        self.board_notices = DIServices.board_notices()
 
     def send_notice(self, data, warning,
                     counter_action: UpdateCounterAction = None):

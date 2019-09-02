@@ -12,7 +12,7 @@ from downloaders import downloader, ThreadDownloader
 from parsers import AsyncHtmlParser
 
 
-class DIServises(cnt.DeclarativeContainer):
+class DIServices(cnt.DeclarativeContainer):
     db_manager = prv.Provider()
 
     conf_program = prv.Provider()
@@ -36,8 +36,8 @@ class UpgradesScheduler(QtCore.QTimer):
 
         # Сигнализирует производится уже обработка данных или нет
         self.flag_progress = Queue(maxsize=1)
-        self.urls: SerialsUrls = DIServises.serials_urls()
-        self.conf_program: ConfigsProgram = DIServises.conf_program()
+        self.urls: SerialsUrls = DIServices.serials_urls()
+        self.conf_program: ConfigsProgram = DIServices.conf_program()
 
         # Храним состояние загрузки
         self.downloader_state: UpgradeState = None
@@ -57,7 +57,7 @@ class UpgradesScheduler(QtCore.QTimer):
             self.download_complete, Qt.QueuedConnection
         )
 
-        self.db_manager = DIServises.db_manager()
+        self.db_manager = DIServices.db_manager()
         self.db_manager.s_status_update.connect(
             self.upgrade_db_complete, Qt.QueuedConnection
         )
