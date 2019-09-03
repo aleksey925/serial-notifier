@@ -10,27 +10,34 @@ class DIServices(cnt.DeclarativeContainer):
     serials_urls = prv.Provider()
 
 
-validators = {
-    '{} не может содержать ";"': lambda i: ';' in i,
-    '{} не может быть пустым': lambda i: len(i) == 0,
-}
+class ValidatorMixin:
+    _common_validators = {
+        '{} не может содержать ";"': lambda i: ';' in i,
+        '{} не может быть пустым': lambda i: len(i) == 0,
+    }
+
+    def validate_input(self, validators: dict = None) -> list:
+        errors = []
+        for i in (self._common_validators, validators or {}):
+            errors.extend(self._validate_input(i))
+
+        return errors
+
+    def _validate_input(self, validators: dict):
+        errors = []
+
+        for field, field_name in self.list_input_field:
+            for error_msg, validator in validators.items():
+                if validator(field.text()):
+                    errors.append(
+                        f'<center>'
+                        f'{error_msg.format(field_name.capitalize())}'
+                        f'</center>'
+                    )
+        return errors
 
 
-def validate_input(list_input_field):
-    errors = []
-
-    for field, field_name in list_input_field:
-        for error_msg, validator in validators.items():
-            if validator(field.text()):
-                errors.append(
-                    f'<center>'
-                    f'{error_msg.format(field_name.capitalize())}'
-                    f'</center>'
-                )
-    return errors
-
-
-class AddNewTvSeriesWindows(QtWidgets.QDialog):
+class AddNewTvSeriesWindows(QtWidgets.QDialog, ValidatorMixin):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedSize(400, 180)
@@ -65,7 +72,7 @@ class AddNewTvSeriesWindows(QtWidgets.QDialog):
         self.add_button.clicked.connect(self.adding_new_tv_serials)
 
     def adding_new_tv_serials(self):
-        errors = validate_input(self.list_input_field)
+        errors = self.validate_input()
         if errors:
             QMessageBox.warning(self, 'Ошибка', "\n".join(errors))
             return
@@ -87,7 +94,7 @@ class AddNewTvSeriesWindows(QtWidgets.QDialog):
         self.show()
 
 
-class RenameTvSeriesWindows(QtWidgets.QDialog):
+class RenameTvSeriesWindows(QtWidgets.QDialog, ValidatorMixin):
     def __init__(self, parent, serial_tree):
         super().__init__(parent)
         self.setFixedSize(400, 120)
@@ -119,19 +126,22 @@ class RenameTvSeriesWindows(QtWidgets.QDialog):
         self.add_button.clicked.connect(self.rename_tv_serials)
 
     def rename_tv_serials(self):
-        errors = validate_input(self.list_input_field)
+        errors = self.validate_input()
         if errors:
             QMessageBox.warning(self, 'Ошибка', "\n".join(errors))
             return
 
         new_name = self.new_tv_serials_name_edit.text()
+        if new_name == self.old_name:
+            self.close()
+            return
 
         try:
-            self.serial_tree.model.setData(
-                self.serial_tree.selected_element[1], new_name
-            )
             DIServices.serials_urls().rename(
                 self.old_name, new_name
+            )
+            self.serial_tree.model.setData(
+                self.serial_tree.selected_element[1], new_name
             )
             self.main_window.s_send_db_task.emit(
                 lambda: self.main_window.db_manager.rename_serial(
@@ -151,3 +161,10 @@ class RenameTvSeriesWindows(QtWidgets.QDialog):
         self.old_name = old_name
         self.new_tv_serials_name_edit.setText(old_name)
         self.show()
+
+
+def unhandled_exception_message_box():
+    QMessageBox.critical(
+        None, 'Непредвиденная ошибка',
+        'Возникла непредвиденная ошибка, приложение будет закрыто.'
+    )

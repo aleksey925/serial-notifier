@@ -234,9 +234,11 @@ class Worker(QtCore.QThread):
                     break
 
                 try:
-                    serial_name, url = self._target_urls[site_name]['urls'].pop()
+                    serial_name, url = self._target_urls[
+                        site_name
+                    ]['urls'].popitem()
                     encoding = self._target_urls[site_name]['encoding']
-                except IndexError:
+                except KeyError:
                     del self._target_urls[site_name]
                     continue
 

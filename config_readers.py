@@ -105,33 +105,41 @@ class SerialsUrls(BaseConfigReader):
         data = {}
         for section, options in self._data.items():
             data[section] = {}
-            data[section]['urls'] = []
+            data[section]['urls'] = {}
             for value in options['urls'].split('\n'):
                 if value != '':
-                    data[section]['urls'].append(value.split(self.url_sep))
+                    tv_serial_name, tv_serial_url = value.split(self.url_sep)
+                    data[section]['urls'][tv_serial_name] = tv_serial_url
             data[section]['encoding'] = options.get('encoding', '')
 
         self._data = data
 
-    def add(self, tv_serial_name, tv_series_url):
+    def tv_serial_with_same_name_exists(self, tv_serial_name) -> bool:
+        for section_options in self._data.values():
+            if tv_serial_name in section_options.get('urls', {}):
+                return True
+        return False
+
+    def add(self, tv_serial_name, tv_serial_url):
         """
         Добавляет новый сериал в список отслеживаемых
         :param tv_serial_name: название сериала
-        :param tv_series_url: url сериала
+        :param tv_serial_url: url сериала
         """
-        parsed_url = urlsplit(tv_series_url)
+        parsed_url = urlsplit(tv_serial_url)
         try:
             base_url = parsed_url.netloc.split('.')[0]
             site = SupportedSites(base_url)
         except ValueError:
             msg = 'Введеный сайт не поддерживается приложением'
-            self._logger.error(msg + f' ({tv_series_url})')
+            self._logger.error(msg + f' ({tv_serial_url})')
             raise ValueError(msg)
 
         urls = self._cfg_parser[site.value]['urls']
 
-        if tv_serial_name in urls:
-            raise ValueError('Сериал с таким именем уже добавлен')
+        if self.tv_serial_with_same_name_exists(tv_serial_name):
+            raise ValueError('Сериал с таким именем уже существует')
+
         if parsed_url.path in urls:
             raise ValueError(
                 'Данный сериал уже отслеживается, но под другим именем'
@@ -139,13 +147,16 @@ class SerialsUrls(BaseConfigReader):
 
         sep = '' if len(urls) == 0 else '\n'
         self._cfg_parser[site.value]['urls'] += (
-            f'{sep}{tv_serial_name}{self.url_sep}{tv_series_url}'
+            f'{sep}{tv_serial_name}{self.url_sep}{tv_serial_url}'
         )
 
         self.write()
         self.read()
 
     def rename(self, old_name, new_name):
+        if self.tv_serial_with_same_name_exists(new_name):
+            raise ValueError('Сериал с таким именем уже существует')
+
         for section_name, section in self._cfg_parser.items():
             urls = section.get('urls', None)
             if urls is not None:

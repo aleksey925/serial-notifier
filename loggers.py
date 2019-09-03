@@ -1,12 +1,20 @@
 import sys
 import logging
 
+import dependency_injector.containers as cnt
+import dependency_injector.providers as prv
+
+
+class DIServices(cnt.DeclarativeContainer):
+    unhandled_exception_message_box = prv.Provider()
+
 
 def unhandled_exception_hook(exc_type, exc_value, exc_traceback):
     logging.getLogger('serial-notifier').error(
         '#CRITICAL Возникла непредвиденная ошибка в работе приложения:',
         exc_info=(exc_type, exc_value, exc_traceback)
     )
+    DIServices.unhandled_exception_message_box()()
 
 
 def root_logger_cleaner():

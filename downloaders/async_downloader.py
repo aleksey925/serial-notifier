@@ -100,7 +100,7 @@ class AsyncDownloader(BaseDownloader):
                     continue
 
                 self._downloaded_pages[site_name] = []
-                for i in site_data['urls']:
+                for i in site_data['urls'].items():
                     tasks.append(self._fetch(session, site_name, *i))
 
             if not tasks:

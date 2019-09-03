@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
-import sys
 import asyncio
+import sys
 from os.path import join
 
 import dependency_injector.containers as cnt
 import dependency_injector.providers as prv
-from quamash import QEventLoop
 from PyQt5 import QtWidgets, QtGui
+from quamash import QEventLoop
 
 import configs
+import loggers
 import notice_plugins
 import schedulers
+from config_readers import ConfigsProgram, SerialsUrls
+from configs import base_dir, resources_dir, log_path
+from db.managers import DbManager
 from db.utils import apply_migrations
 from downloaders import base_downloader
-from db.managers import DbManager
 from gui import mainwindow, widgets, windows
-from gui.widgets import SearchLineEdit, BoardNotices
 from gui.mainwindow import MainWindow, SerialTree, SystemTrayIcon
-from configs import base_dir, resources_dir, log_path
-from config_readers import ConfigsProgram, SerialsUrls
-from loggers import init_logger
+from gui.widgets import SearchLineEdit, BoardNotices
 
 
 class DIServices(cnt.DeclarativeContainer):
@@ -36,6 +36,9 @@ class DIServices(cnt.DeclarativeContainer):
         windows.RenameTvSeriesWindows, parent=main_window(),
         serial_tree=serial_tree()
     )
+    unhandled_exception_message_box = prv.Object(
+        windows.unhandled_exception_message_box
+    )
 
     db_manager = prv.Singleton(DbManager, main_window().s_send_db_task)
 
@@ -50,6 +53,7 @@ windows.DIServices.override(DIServices)
 schedulers.DIServices.override(DIServices)
 notice_plugins.DIServices.override(DIServices)
 base_downloader.DIServices.override(DIServices)
+loggers.DIServices.override(DIServices)
 
 app: QtWidgets.QApplication = DIServices.app()
 app.icon = QtGui.QIcon(join(base_dir, 'icons/app-icon-512x512.png'))
@@ -57,7 +61,7 @@ app.setWindowIcon(app.icon)
 loop = QEventLoop(app)
 asyncio.set_event_loop(loop)
 
-init_logger(log_path)
+loggers.init_logger(log_path)
 notice_plugins.NoticePluginsContainer.load_notice_plugins()
 
 apply_migrations(configs.base_dir)
