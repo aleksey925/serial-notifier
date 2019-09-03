@@ -8,8 +8,10 @@ import dependency_injector.providers as prv
 from quamash import QEventLoop
 from PyQt5 import QtWidgets, QtGui
 
+import configs
 import notice_plugins
 import schedulers
+from db.utils import apply_migrations
 from downloaders import base_downloader
 from db.managers import DbManager
 from gui import mainwindow, widgets, windows
@@ -57,6 +59,8 @@ asyncio.set_event_loop(loop)
 
 init_logger(log_path)
 notice_plugins.NoticePluginsContainer.load_notice_plugins()
+
+apply_migrations(configs.base_dir)
 
 window = DIServices.main_window()
 window.init()
