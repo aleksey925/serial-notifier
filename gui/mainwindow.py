@@ -23,6 +23,7 @@ class DIServices(cnt.DeclarativeContainer):
     add_new_tv_series_windows = prv.Provider()
     rename_tv_series_windows = prv.Provider()
 
+    upgrades_scheduler = prv.Provider()
     db_manager = prv.Provider()
 
     serials_urls = prv.Provider()
@@ -463,7 +464,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.update_list_serial, QtCore.Qt.QueuedConnection
         )
 
-        self.upgrades_scheduler = UpgradesScheduler()
+        self.upgrades_scheduler = DIServices.upgrades_scheduler()
         self.upgrades_scheduler.s_upgrade_complete.connect(
             self.upgrade_complete
         )

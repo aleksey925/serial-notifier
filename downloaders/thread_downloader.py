@@ -78,8 +78,8 @@ class ThreadDownloader(BaseDownloader):
         self._downloaded_pac_file = downloaded_pac_file
         self._logger.info(
             'Проксирвание запросов {}'.format(
-                'ВКЛЮЧЕНО' if self._conf_program['downloader']['use_proxy'] else
-                'ВЫКЛЮЧЕНО'
+                'ВКЛЮЧЕНО' if self._conf_program['downloader']['use_proxy']
+                else 'ВЫКЛЮЧЕНО'
             )
         )
 

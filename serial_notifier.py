@@ -37,9 +37,10 @@ class DIServices(cnt.DeclarativeContainer):
         serial_tree=serial_tree()
     )
     unhandled_exception_message_box = prv.Object(
-        windows.unhandled_exception_message_box
+        windows.UnhandledExceptionMessageBox()
     )
 
+    upgrades_scheduler = prv.Singleton(schedulers.UpgradesScheduler)
     db_manager = prv.Singleton(DbManager, main_window().s_send_db_task)
 
     conf_program = prv.Singleton(ConfigsProgram, base_dir=resources_dir)

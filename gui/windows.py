@@ -2,7 +2,7 @@ import logging
 
 import dependency_injector.containers as cnt
 import dependency_injector.providers as prv
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtWidgets import QMessageBox
 
 
@@ -163,8 +163,25 @@ class RenameTvSeriesWindows(QtWidgets.QDialog, ValidatorMixin):
         self.show()
 
 
-def unhandled_exception_message_box():
-    QMessageBox.critical(
-        None, 'Непредвиденная ошибка',
-        'Возникла непредвиденная ошибка, приложение будет закрыто.'
+class UnhandledExceptionMessageBox(QtCore.QObject):
+    s_unhandled_exception_message_box = QtCore.pyqtSignal(
+        name='s_unhandled_exception_message_box'
     )
+
+    def __init__(self):
+        super().__init__()
+        self.message = (
+            'Возникла непредвиденная ошибка. Если приложение не будет закрыто '
+            'автоматически, попробуйте перзапустить его вручную.'
+        )
+        self.s_unhandled_exception_message_box.connect(
+            self.show_error, QtCore.Qt.QueuedConnection
+        )
+
+    def __call__(self):
+        self.s_unhandled_exception_message_box.emit()
+
+    def show_error(self):
+        QMessageBox.critical(
+            None, 'Непредвиденная ошибка', self.message
+        )
