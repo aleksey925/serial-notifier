@@ -59,6 +59,7 @@ app: QtWidgets.QApplication = DIServices.app()
 app.icon = QtGui.QIcon(join(base_dir, 'icons/app-icon-512x512.png'))
 app.setWindowIcon(app.icon)
 loop = QEventLoop(app)
+loop.set_exception_handler(loggers.asyncio_unhandled_exception_hook)
 asyncio.set_event_loop(loop)
 
 loggers.init_logger(log_path)
