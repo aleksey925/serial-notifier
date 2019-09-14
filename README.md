@@ -23,9 +23,20 @@ of setting.conf.
 Requirements:
 
 - python >= 3.6
+- golang >= 1.10
 - poetry
 
-To install libraries, execute the below command:
+### Install golang
+You can use the GVM utility for installing golang on linux. Brew is the best 
+way to use it on MacOs.
+
+Installation with brew is performed by the next command:
+
+```bash
+brew install golang
+```
+
+Execute the below command, to install libraries:
 
 ```bash
 poetry install --no-dev
@@ -87,7 +98,19 @@ serial-notifier - это приложение для отслеживания в
 Зависимости:
 
 - python >= 3.6
+- golang >= 1.10
 - poetry
+
+### Установка golang
+
+Для того, чтобы установить golang на linux можно воспользоваться утилитой GVM,
+а для установки на mac os удобнее всего будет воспользоваться brew.
+
+Установка при помощи brew выполняется следующей командой:
+
+```bash
+brew install golang
+```
 
 После того как основные зависимости установлены, необходимо выполнить установку
 бибилиотек необходимых для работы приложения (команду описанную ниже, 
